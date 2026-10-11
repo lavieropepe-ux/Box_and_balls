@@ -5,27 +5,36 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Arcade 3D: Cubo vs Sfere</title>
   <style>
-    body {
+    * { box-sizing: border-box; }
+    body, html {
       margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
       overflow: hidden;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-family: 'Segoe UI', Roboto, sans-serif;
       user-select: none;
-      background-color: #050510;
+      background-color: #080818;
+    }
+    #canvas-container {
+      width: 100%;
+      height: 100%;
+      display: block;
     }
     #ui {
       position: absolute;
       top: 20px;
       right: 20px;
       color: #00fff2;
-      font-size: 28px;
+      font-size: 26px;
       font-weight: 800;
-      background: rgba(10, 15, 30, 0.75);
-      backdrop-filter: blur(8px);
-      padding: 12px 28px;
+      background: rgba(10, 15, 30, 0.85);
+      padding: 10px 24px;
       border-radius: 12px;
-      border: 1px solid rgba(0, 255, 242, 0.3);
+      border: 1px solid rgba(0, 255, 242, 0.4);
       box-shadow: 0 0 15px rgba(0, 255, 242, 0.2);
       pointer-events: none;
+      z-index: 10;
     }
     #instructions {
       position: absolute;
@@ -33,15 +42,15 @@
       left: 50%;
       transform: translateX(-50%);
       color: #ffffff;
-      font-size: 15px;
+      font-size: 14px;
       letter-spacing: 1px;
-      background: rgba(10, 15, 30, 0.75);
-      backdrop-filter: blur(8px);
-      padding: 10px 24px;
+      background: rgba(10, 15, 30, 0.85);
+      padding: 10px 22px;
       border-radius: 30px;
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.2);
       pointer-events: none;
       text-transform: uppercase;
+      z-index: 10;
     }
     .floating-text {
       position: absolute;
@@ -51,26 +60,33 @@
       pointer-events: none;
       animation: floatUp 0.8s ease-out forwards;
       text-shadow: 0 0 8px rgba(255, 0, 85, 0.8);
+      z-index: 20;
     }
     @keyframes floatUp {
       0% { opacity: 1; transform: translateY(0) scale(1); }
       100% { opacity: 0; transform: translateY(-40px) scale(1.4); }
     }
   </style>
+  <!-- Inseriamo Three.js nell'head per assicurarne il caricamento tempestivo -->
+  <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
 </head>
 <body>
 
   <div id="ui">SCORE: <span id="score">0</span></div>
   <div id="instructions">Clicca/Tappa per lanciare i cubi dinamici!</div>
-
-  <!-- Library Three.js -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <div id="canvas-container"></div>
 
   <script>
+    // Verifica che Three.js sia stato caricato
+    if (typeof THREE === 'undefined') {
+      alert("Errore nel caricamento della libreria 3D. Ricarica la pagina.");
+    }
+
+    const container = document.getElementById('canvas-container');
+
     // --- SCENA, CAMERA & RENDERER ---
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x080818);
-    scene.fog = new THREE.FogExp2(0x080818, 0.02);
 
     const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(0, 10, 22);
@@ -79,28 +95,248 @@
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
-    document.body.appendChild(renderer.domElement);
+    container.appendChild(renderer.domElement);
 
     // --- GRIGLIA D'ARENA E LUCI ---
     const gridHelper = new THREE.GridHelper(40, 40, 0x00fff2, 0x1f1f3a);
     gridHelper.position.y = 0;
     scene.add(gridHelper);
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
     dirLight.position.set(15, 25, 10);
-    dirLight.castShadow = true;
     scene.add(dirLight);
-
-    const pointLight = new THREE.PointLight(0x00fff2, 1, 30);
-    pointLight.position.set(0, 5, 0);
-    scene.add(pointLight);
 
     // --- VARIABILI DI GIOCO ---
     let score = 0;
     const spheres = [];
     const cubes = [];
-    const
+    const particles = [];
+
+    const sphereRadius = 1.1;
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+
+    // --- SFERA DINAMICA ---
+    function spawnSphere() {
+      const geometry = new THREE.SphereGeometry(sphereRadius, 32, 32);
+      const material = new THREE.MeshStandardMaterial({ 
+        color: 0xff0055, 
+        roughness: 0.2, 
+        metalness: 0.5
+      });
+      const sphere = new THREE.Mesh(geometry, material);
+
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 0.04 + Math.random() * 0.04;
+
+      sphere.position.set(
+        (Math.random() - 0.5) * 16,
+        sphereRadius + Math.random() * 2,
+        (Math.random() - 0.5) * 12 - 2
+      );
+
+      sphere.userData = {
+        vx: Math.cos(angle) * speed,
+        vz: Math.sin(angle) * speed,
+        initialY: sphere.position.y,
+        timeOffset: Math.random() * 100
+      };
+
+      scene.add(sphere);
+      spheres.push(sphere);
+    }
+
+    // --- PARTICELLE ---
+    function createExplosion(pos) {
+      const particleCount = 20;
+      const geometry = new THREE.BufferGeometry();
+      const positions = [];
+      const velocities = [];
+
+      for (let i = 0; i < particleCount; i++) {
+        positions.push(pos.x, pos.y, pos.z);
+        velocities.push(
+          (Math.random() - 0.5) * 0.4,
+          (Math.random() - 0.5) * 0.4 + 0.1,
+          (Math.random() - 0.5) * 0.4
+        );
+      }
+
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      
+      const material = new THREE.PointsMaterial({
+        color: 0xff2e63,
+        size: 0.4,
+        transparent: true,
+        opacity: 1
+      });
+
+      const pSystem = new THREE.Points(geometry, material);
+      scene.add(pSystem);
+
+      particles.push({
+        system: pSystem,
+        velocities: velocities,
+        life: 30
+      });
+    }
+
+    function showFloatingText(x, y, text) {
+      const div = document.createElement('div');
+      div.className = 'floating-text';
+      div.innerText = text;
+      div.style.left = `${x}px`;
+      div.style.top = `${y}px`;
+      document.body.appendChild(div);
+      setTimeout(() => div.remove(), 800);
+    }
+
+    // --- LANCIO CUBO ---
+    function throwCube(targetPoint) {
+      const colors = [0x00fff2, 0x00ff88, 0xffea00, 0x0099ff];
+      const randomColor = colors[Math.floor(Math.random() * colors.length)];
+      const cubeSize = 0.9 + Math.random() * 0.4;
+
+      const geometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
+      const material = new THREE.MeshStandardMaterial({ 
+        color: randomColor, 
+        roughness: 0.1
+      });
+      const cube = new THREE.Mesh(geometry, material);
+
+      cube.position.set(0, 1, 15);
+
+      const direction = new THREE.Vector3().subVectors(targetPoint, cube.position).normalize();
+      const speed = 0.6 + Math.random() * 0.2;
+
+      cubes.push({
+        mesh: cube,
+        velocity: direction.multiplyScalar(speed),
+        size: cubeSize,
+        rotSpeed: {
+          x: (Math.random() - 0.5) * 0.2,
+          y: (Math.random() - 0.5) * 0.2
+        },
+        life: 200
+      });
+
+      scene.add(cube);
+    }
+
+    // --- INPUT ---
+    window.addEventListener('pointerdown', (e) => {
+      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const target = new THREE.Vector3();
+      raycaster.ray.intersectPlane(plane, target);
+
+      if (target) {
+        throwCube(target);
+      }
+    });
+
+    // Inizializza 2 sfere
+    spawnSphere();
+    spawnSphere();
+
+    // --- ANIMAZIONE ---
+    let clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const elapsedTime = clock.getElapsedTime();
+
+      // 1. Movimento Sfere
+      spheres.forEach(s => {
+        s.position.x += s.userData.vx;
+        s.position.z += s.userData.vz;
+        s.position.y = s.userData.initialY + Math.sin(elapsedTime * 3 + s.userData.timeOffset) * 0.5;
+
+        if (Math.abs(s.position.x) > 9) s.userData.vx *= -1;
+        if (s.position.z > 6 || s.position.z < -10) s.userData.vz *= -1;
+      });
+
+      // 2. Movimento Cubi & Collisioni
+      for (let i = cubes.length - 1; i >= 0; i--) {
+        const c = cubes[i];
+        c.mesh.position.add(c.velocity);
+        c.mesh.rotation.x += c.rotSpeed.x;
+        c.mesh.rotation.y += c.rotSpeed.y;
+        c.life--;
+
+        let removed = false;
+
+        for (let j = spheres.length - 1; j >= 0; j--) {
+          const s = spheres[j];
+          const dist = c.mesh.position.distanceTo(s.position);
+          const collisionThreshold = sphereRadius + (c.size * 0.6);
+
+          if (dist < collisionThreshold) {
+            createExplosion(s.position);
+
+            const screenPos = s.position.clone().project(camera);
+            const x = (screenPos.x * .5 + .5) * window.innerWidth;
+            const y = (-(screenPos.y * .5) + .5) * window.innerHeight;
+            showFloatingText(x, y, "+100");
+
+            scene.remove(s);
+            spheres.splice(j, 1);
+            scene.remove(c.mesh);
+            cubes.splice(i, 1);
+            removed = true;
+
+            score += 100;
+            document.getElementById('score').innerText = score;
+
+            spawnSphere();
+            spawnSphere();
+            break;
+          }
+        }
+
+        if (!removed && c.life <= 0) {
+          scene.remove(c.mesh);
+          cubes.splice(i, 1);
+        }
+      }
+
+      // 3. Particelle
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        const positions = p.system.geometry.attributes.position.array;
+
+        for (let j = 0; j < positions.length; j += 3) {
+          positions[j] += p.velocities[j];
+          positions[j+1] += p.velocities[j+1];
+          positions[j+2] += p.velocities[j+2];
+        }
+
+        p.system.geometry.attributes.position.needsUpdate = true;
+        p.system.material.opacity = p.life / 30;
+        p.life--;
+
+        if (p.life <= 0) {
+          scene.remove(p.system);
+          particles.splice(i, 1);
+        }
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    animate();
+  </script>
+</body>
+</html>
