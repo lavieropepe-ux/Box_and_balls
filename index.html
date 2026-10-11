@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cronache di Pietra - La Pecora Eroe vs Anfore</title>
+  <title>Cronache di Pietra - Il Forno Antico</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Cinzel:wght@600&display=swap');
 
@@ -86,7 +86,7 @@
     renderer.toneMappingExposure = 1.2;
     container.appendChild(renderer.domElement);
 
-    // --- ILLUMINAZIONE ATMOSFERICA FANTASY ---
+    // --- ILLUMINAZIONE ATMOSFERICA ---
     const ambientLight = new THREE.AmbientLight(0x28243d, 1.5);
     scene.add(ambientLight);
 
@@ -94,10 +94,6 @@
     moonLight.position.set(30, 50, 30);
     moonLight.castShadow = true;
     scene.add(moonLight);
-
-    const plazaLight = new THREE.PointLight(0xff5500, 3.5, 35);
-    plazaLight.position.set(0, 3.5, 0);
-    scene.add(plazaLight);
 
     // --- PIAZZA MEDIEVALE ---
     const plazaGeo = new THREE.CylinderGeometry(24, 25, 0.8, 32);
@@ -107,24 +103,67 @@
     plaza.receiveShadow = true;
     scene.add(plaza);
 
-    const baseGeo = new THREE.BoxGeometry(4, 0.8, 4);
-    const stoneMat = new THREE.MeshStandardMaterial({ color: 0x3d3f4a, roughness: 0.8, metalness: 0.2 });
-    const baseMesh = new THREE.Mesh(baseGeo, stoneMat);
-    baseMesh.position.y = 0.4;
-    baseMesh.castShadow = true;
-    scene.add(baseMesh);
+    // --- COSTRUZIONE DEL FORNO ANTICO IN PIETRA (AL POSTO DELLA STELE) ---
+    function createOvenMesh() {
+      const ovenGroup = new THREE.Group();
 
-    const obeliskGeo = new THREE.ConeGeometry(1.2, 7, 4);
-    const obelisk = new THREE.Mesh(obeliskGeo, stoneMat);
-    obelisk.position.y = 4.3;
-    obelisk.castShadow = true;
-    scene.add(obelisk);
+      const stoneMat = new THREE.MeshStandardMaterial({ color: 0x4a433e, roughness: 0.9, metalness: 0.1 });
+      const brickMat = new THREE.MeshStandardMaterial({ color: 0x8c3b2b, roughness: 0.8 });
+      const darkInsideMat = new THREE.MeshBasicMaterial({ color: 0x110500 });
+      const fireMat = new THREE.MeshBasicMaterial({ color: 0xff4500 });
 
-    const topCrystalGeo = new THREE.OctahedronGeometry(0.8);
-    const topCrystalMat = new THREE.MeshStandardMaterial({ color: 0xffd700, emissive: 0xff8800, roughness: 0.1, metalness: 0.9 });
-    const topCrystal = new THREE.Mesh(topCrystalGeo, topCrystalMat);
-    topCrystal.position.y = 8.5;
-    scene.add(topCrystal);
+      // Base quadrata in pietra del forno
+      const baseGeo = new THREE.BoxGeometry(5.5, 1.2, 5.5);
+      const baseMesh = new THREE.Mesh(baseGeo, stoneMat);
+      baseMesh.position.y = 0.6;
+      baseMesh.castShadow = true;
+      baseMesh.receiveShadow = true;
+      ovenGroup.add(baseMesh);
+
+      // Cupola del forno
+      const domeGeo = new THREE.SphereGeometry(2.4, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+      const domeMesh = new THREE.Mesh(domeGeo, brickMat);
+      domeMesh.position.y = 1.2;
+      domeMesh.castShadow = true;
+      ovenGroup.add(domeMesh);
+
+      // Canna fumaria / Comignolo
+      const chimneyGeo = new THREE.CylinderGeometry(0.4, 0.5, 1.8, 12);
+      const chimneyMesh = new THREE.Mesh(chimneyGeo, stoneMat);
+      chimneyMesh.position.set(1.2, 3.2, -1.0);
+      chimneyMesh.castShadow = true;
+      ovenGroup.add(chimneyMesh);
+
+      // Bocca d'ingresso del forno (Arco)
+      const archGeo = new THREE.CylinderGeometry(0.9, 0.9, 0.8, 16, 1, false, 0, Math.PI);
+      const archMesh = new THREE.Mesh(archGeo, stoneMat);
+      archMesh.rotation.x = Math.PI / 2;
+      archMesh.position.set(0, 1.8, 2.2);
+      ovenGroup.add(archMesh);
+
+      // Cavità interna scura
+      const cavityGeo = new THREE.PlaneGeometry(1.4, 1.2);
+      const cavityMesh = new THREE.Mesh(cavityGeo, darkInsideMat);
+      cavityMesh.position.set(0, 1.6, 2.35);
+      ovenGroup.add(cavityMesh);
+
+      // Fuoco/braci all'interno dell'imbocco
+      const fireGeo = new THREE.PlaneGeometry(1.2, 0.6);
+      const fireMesh = new THREE.Mesh(fireGeo, fireMat);
+      fireMesh.position.set(0, 1.3, 2.36);
+      ovenGroup.add(fireMesh);
+
+      // Luce arancione calda emanata dall'interno del forno
+      const ovenLight = new THREE.PointLight(0xff5500, 4.0, 18);
+      ovenLight.position.set(0, 1.6, 2.6);
+      ovenLight.castShadow = true;
+      ovenGroup.add(ovenLight);
+
+      return ovenGroup;
+    }
+
+    const oven = createOvenMesh();
+    scene.add(oven);
 
     // --- LA PECORA EROE SU DUE ZAMPE ---
     const heroGroup = new THREE.Group();
@@ -174,44 +213,38 @@
     scene.add(heroGroup);
     heroGroup.position.set(0, 0, 12);
 
-    // --- COSTRUZIONE DEL MODELLO DI UN'ANFORA ANTICA ---
+    // --- ANFORA ANTICA ---
     function createAmphoraMesh() {
       const amphoraGroup = new THREE.Group();
       const terracottaMat = new THREE.MeshStandardMaterial({ 
         color: 0xb45309, 
         roughness: 0.7, 
-        metalness: 0.1,
-        bumpScale: 0.05
+        metalness: 0.1
       });
 
-      // Corpo panciuto
       const bodyGeo = new THREE.SphereGeometry(0.9, 16, 16);
       bodyGeo.scale(1, 1.3, 1);
       const body = new THREE.Mesh(bodyGeo, terracottaMat);
       body.castShadow = true;
       amphoraGroup.add(body);
 
-      // Collo dell'anfora
       const neckGeo = new THREE.CylinderGeometry(0.3, 0.4, 0.7, 12);
       const neck = new THREE.Mesh(neckGeo, terracottaMat);
       neck.position.y = 1.3;
       neck.castShadow = true;
       amphoraGroup.add(neck);
 
-      // Bordo superiore
       const rimGeo = new THREE.TorusGeometry(0.35, 0.08, 8, 16);
       const rim = new THREE.Mesh(rimGeo, terracottaMat);
       rim.rotation.x = Math.PI / 2;
       rim.position.y = 1.65;
       amphoraGroup.add(rim);
 
-      // Base appuntita / piedistallo
       const baseGeo = new THREE.CylinderGeometry(0.1, 0.3, 0.4, 12);
       const base = new THREE.Mesh(baseGeo, terracottaMat);
       base.position.y = -1.2;
       amphoraGroup.add(base);
 
-      // Manici laterali
       const handleGeo = new THREE.TorusGeometry(0.3, 0.07, 8, 12, Math.PI);
       
       const handle1 = new THREE.Mesh(handleGeo, terracottaMat);
@@ -248,7 +281,7 @@
 
       const angle = Math.random() * Math.PI * 2;
       const speed = 0.03 + Math.random() * 0.025;
-      const distFromCenter = 8 + Math.random() * 10;
+      const distFromCenter = 9 + Math.random() * 9;
 
       amphora.position.set(
         Math.cos(angle) * distFromCenter,
@@ -267,7 +300,7 @@
       amphorae.push(amphora);
     }
 
-    // --- ESPLOSIONE COCOTTA / COCOCERAMICA ---
+    // --- ESPLOSIONE COCOTTA ---
     function createExplosion(pos) {
       const particleCount = 40;
       const geometry = new THREE.BufferGeometry();
@@ -350,7 +383,6 @@
       }
     });
 
-    // Inizia con 3 anfore
     spawnAmphora();
     spawnAmphora();
     spawnAmphora();
@@ -360,9 +392,6 @@
     function animate() {
       requestAnimationFrame(animate);
       const elapsedTime = clock.getElapsedTime();
-
-      topCrystal.rotation.y = elapsedTime * 1.5;
-      topCrystal.position.y = 8.5 + Math.sin(elapsedTime * 3) * 0.3;
 
       const moveSpeed = 0.13;
       if (keys.w && heroGroup.position.z > -18) heroGroup.position.z -= moveSpeed;
