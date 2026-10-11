@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cronache di Pietra - La Pecora Eroe</title>
+  <title>Cronache di Pietra - La Pecora Eroe vs Anfore</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Cinzel:wght@600&display=swap');
 
@@ -60,7 +60,7 @@
 <body>
 
   <div id="ui">GEMME: <span id="score">0</span></div>
-  <div id="instructions">Usa [W, A, S, D] per muovere la Pecora Eroe • Clicca per lanciare Rune di Luce</div>
+  <div id="instructions">Usa [W, A, S, D] per muovere la Pecora Eroe • Clicca per colpire le Anfore</div>
   <div id="canvas-container"></div>
 
   <script>
@@ -129,21 +129,18 @@
     // --- LA PECORA EROE SU DUE ZAMPE ---
     const heroGroup = new THREE.Group();
 
-    // Mantello da eroe
     const capeMat = new THREE.MeshStandardMaterial({ color: 0x8b0000, roughness: 0.6 });
     const capeMesh = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.1, 0.3), capeMat);
     capeMesh.position.set(0, 0.8, -0.2);
     capeMesh.castShadow = true;
     heroGroup.add(capeMesh);
 
-    // Corpo soffice (Lana della pecora)
     const woolMat = new THREE.MeshStandardMaterial({ color: 0xf3f4f6, roughness: 0.9 });
     const bodyMesh = new THREE.Mesh(new THREE.DodecahedronGeometry(0.65, 1), woolMat);
     bodyMesh.position.y = 0.9;
     bodyMesh.castShadow = true;
     heroGroup.add(bodyMesh);
 
-    // Gambe posteriori (su due zampe)
     const legMat = new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.8 });
     const leg1 = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.1, 0.6), legMat);
     leg1.position.set(-0.25, 0.3, 0);
@@ -152,20 +149,17 @@
     leg2.position.set(0.25, 0.3, 0);
     heroGroup.add(leg2);
 
-    // Testa della pecora
     const headGroup = new THREE.Group();
     headGroup.position.set(0, 1.5, 0.1);
 
     const headBase = new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 16), woolMat);
     headGroup.add(headBase);
 
-    // Muso scuro
     const snoutMat = new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.7 });
     const snout = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.2, 0.3), snoutMat);
     snout.position.set(0, -0.05, 0.25);
     headGroup.add(snout);
 
-    // Orecchie pendenti
     const ear1 = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.12, 0.1), snoutMat);
     ear1.position.set(-0.35, 0.1, 0);
     ear1.rotation.z = 0.2;
@@ -180,13 +174,66 @@
     scene.add(heroGroup);
     heroGroup.position.set(0, 0, 12);
 
+    // --- COSTRUZIONE DEL MODELLO DI UN'ANFORA ANTICA ---
+    function createAmphoraMesh() {
+      const amphoraGroup = new THREE.Group();
+      const terracottaMat = new THREE.MeshStandardMaterial({ 
+        color: 0xb45309, 
+        roughness: 0.7, 
+        metalness: 0.1,
+        bumpScale: 0.05
+      });
+
+      // Corpo panciuto
+      const bodyGeo = new THREE.SphereGeometry(0.9, 16, 16);
+      bodyGeo.scale(1, 1.3, 1);
+      const body = new THREE.Mesh(bodyGeo, terracottaMat);
+      body.castShadow = true;
+      amphoraGroup.add(body);
+
+      // Collo dell'anfora
+      const neckGeo = new THREE.CylinderGeometry(0.3, 0.4, 0.7, 12);
+      const neck = new THREE.Mesh(neckGeo, terracottaMat);
+      neck.position.y = 1.3;
+      neck.castShadow = true;
+      amphoraGroup.add(neck);
+
+      // Bordo superiore
+      const rimGeo = new THREE.TorusGeometry(0.35, 0.08, 8, 16);
+      const rim = new THREE.Mesh(rimGeo, terracottaMat);
+      rim.rotation.x = Math.PI / 2;
+      rim.position.y = 1.65;
+      amphoraGroup.add(rim);
+
+      // Base appuntita / piedistallo
+      const baseGeo = new THREE.CylinderGeometry(0.1, 0.3, 0.4, 12);
+      const base = new THREE.Mesh(baseGeo, terracottaMat);
+      base.position.y = -1.2;
+      amphoraGroup.add(base);
+
+      // Manici laterali
+      const handleGeo = new THREE.TorusGeometry(0.3, 0.07, 8, 12, Math.PI);
+      
+      const handle1 = new THREE.Mesh(handleGeo, terracottaMat);
+      handle1.rotation.z = Math.PI / 2;
+      handle1.position.set(0.7, 0.5, 0);
+      amphoraGroup.add(handle1);
+
+      const handle2 = new THREE.Mesh(handleGeo, terracottaMat);
+      handle2.rotation.z = -Math.PI / 2;
+      handle2.position.set(-0.7, 0.5, 0);
+      amphoraGroup.add(handle2);
+
+      return amphoraGroup;
+    }
+
     // --- VARIABILI DI GIOCO ---
     let score = 0;
-    const spheres = [];
+    const amphorae = [];
     const cubes = [];
     const particles = [];
 
-    const sphereRadius = 1.2;
+    const amphoraRadius = 1.2;
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
     const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -195,43 +242,34 @@
     window.addEventListener('keydown', (e) => { if (keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = true; });
     window.addEventListener('keyup', (e) => { if (keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = false; });
 
-    // --- SFERE DI CRISTALLO ---
-    function spawnSphere() {
-      const geometry = new THREE.IcosahedronGeometry(sphereRadius, 2);
-      const material = new THREE.MeshStandardMaterial({ 
-        color: 0x9333ea, 
-        roughness: 0.1, 
-        metalness: 0.8,
-        emissive: 0x581c87,
-        emissiveIntensity: 0.6
-      });
-      const sphere = new THREE.Mesh(geometry, material);
-      sphere.castShadow = true;
+    // --- SPAWN ANFORE ---
+    function spawnAmphora() {
+      const amphora = createAmphoraMesh();
 
       const angle = Math.random() * Math.PI * 2;
-      const speed = 0.035 + Math.random() * 0.03;
+      const speed = 0.03 + Math.random() * 0.025;
       const distFromCenter = 8 + Math.random() * 10;
 
-      sphere.position.set(
+      amphora.position.set(
         Math.cos(angle) * distFromCenter,
-        sphereRadius + 1 + Math.random() * 2,
+        1.2,
         Math.sin(angle) * distFromCenter
       );
 
-      sphere.userData = {
+      amphora.userData = {
         vx: Math.cos(angle + Math.PI/2) * speed * 1.2,
         vz: Math.sin(angle + Math.PI/2) * speed * 1.2,
-        initialY: sphere.position.y,
+        initialY: amphora.position.y,
         timeOffset: Math.random() * 100
       };
 
-      scene.add(sphere);
-      spheres.push(sphere);
+      scene.add(amphora);
+      amphorae.push(amphora);
     }
 
-    // --- ESPLOSIONE ---
+    // --- ESPLOSIONE COCOTTA / COCOCERAMICA ---
     function createExplosion(pos) {
-      const particleCount = 35;
+      const particleCount = 40;
       const geometry = new THREE.BufferGeometry();
       const positions = [];
       const velocities = [];
@@ -239,24 +277,23 @@
       for (let i = 0; i < particleCount; i++) {
         positions.push(pos.x, pos.y, pos.z);
         velocities.push(
-          (Math.random() - 0.5) * 0.5,
-          (Math.random() - 0.5) * 0.5 + 0.2,
-          (Math.random() - 0.5) * 0.5
+          (Math.random() - 0.5) * 0.6,
+          (Math.random() - 0.5) * 0.6 + 0.3,
+          (Math.random() - 0.5) * 0.6
         );
       }
 
       geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
       const material = new THREE.PointsMaterial({ 
-        color: 0xfde047, 
+        color: 0xd97706, 
         size: 0.45, 
         transparent: true, 
-        opacity: 1,
-        blending: THREE.AdditiveBlending
+        opacity: 1
       });
       const pSystem = new THREE.Points(geometry, material);
       scene.add(pSystem);
 
-      particles.push({ system: pSystem, velocities: velocities, life: 40 });
+      particles.push({ system: pSystem, velocities: velocities, life: 45 });
     }
 
     function showFloatingText(x, y, text) {
@@ -313,9 +350,10 @@
       }
     });
 
-    spawnSphere();
-    spawnSphere();
-    spawnSphere();
+    // Inizia con 3 anfore
+    spawnAmphora();
+    spawnAmphora();
+    spawnAmphora();
 
     let clock = new THREE.Clock();
 
@@ -332,7 +370,6 @@
       if (keys.a && heroGroup.position.x > -18) heroGroup.position.x -= moveSpeed;
       if (keys.d && heroGroup.position.x < 18) heroGroup.position.x += moveSpeed;
 
-      // Leggero dondolio mentre cammina
       if (keys.w || keys.a || keys.s || keys.d) {
         heroGroup.position.y = Math.sin(elapsedTime * 15) * 0.08;
       } else {
@@ -344,17 +381,17 @@
       camera.position.z = heroGroup.position.z + 14;
       camera.lookAt(heroGroup.position.x, heroGroup.position.y + 1, heroGroup.position.z);
 
-      spheres.forEach(s => {
-        s.position.x += s.userData.vx;
-        s.position.z += s.userData.vz;
-        s.position.y = s.userData.initialY + Math.sin(elapsedTime * 4 + s.userData.timeOffset) * 0.5;
-        s.rotation.x += 0.01;
-        s.rotation.y += 0.02;
+      // Movimento anfore
+      amphorae.forEach(a => {
+        a.position.x += a.userData.vx;
+        a.position.z += a.userData.vz;
+        a.position.y = a.userData.initialY + Math.sin(elapsedTime * 3 + a.userData.timeOffset) * 0.3;
+        a.rotation.y += 0.015;
 
-        const distFromCenter = Math.sqrt(s.position.x**2 + s.position.z**2);
+        const distFromCenter = Math.sqrt(a.position.x**2 + a.position.z**2);
         if (distFromCenter > 20) {
-          s.userData.vx *= -1;
-          s.userData.vz *= -1;
+          a.userData.vx *= -1;
+          a.userData.vz *= -1;
         }
       });
 
@@ -367,30 +404,30 @@
 
         let removed = false;
 
-        for (let j = spheres.length - 1; j >= 0; j--) {
-          const s = spheres[j];
-          const dist = c.mesh.position.distanceTo(s.position);
-          const collisionThreshold = sphereRadius + (c.size * 0.6);
+        for (let j = amphorae.length - 1; j >= 0; j--) {
+          const a = amphorae[j];
+          const dist = c.mesh.position.distanceTo(a.position);
+          const collisionThreshold = amphoraRadius + (c.size * 0.5);
 
           if (dist < collisionThreshold) {
-            createExplosion(s.position);
+            createExplosion(a.position);
 
-            const screenPos = s.position.clone().project(camera);
+            const screenPos = a.position.clone().project(camera);
             const x = (screenPos.x * .5 + .5) * window.innerWidth;
             const y = (-(screenPos.y * .5) + .5) * window.innerHeight;
-            showFloatingText(x, y, "+250");
+            showFloatingText(x, y, "+300");
 
-            scene.remove(s);
-            spheres.splice(j, 1);
+            scene.remove(a);
+            amphorae.splice(j, 1);
             scene.remove(c.mesh);
             cubes.splice(i, 1);
             removed = true;
 
-            score += 250;
+            score += 300;
             document.getElementById('score').innerText = score;
 
-            spawnSphere();
-            spawnSphere();
+            spawnAmphora();
+            spawnAmphora();
             break;
           }
         }
@@ -412,7 +449,7 @@
         }
 
         p.system.geometry.attributes.position.needsUpdate = true;
-        p.system.material.opacity = p.life / 40;
+        p.system.material.opacity = p.life / 45;
         p.life--;
 
         if (p.life <= 0) {
