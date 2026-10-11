@@ -2,13 +2,14 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gioco Cubo e Sfere</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Lancia il Cubo!</title>
   <style>
     body {
       margin: 0;
       overflow: hidden;
       font-family: sans-serif;
+      touch-action: none; /* Previene lo scroll su dispositivi touch */
     }
     #score-board {
       position: absolute;
@@ -17,57 +18,84 @@
       color: white;
       font-size: 24px;
       font-weight: bold;
-      background: rgba(0, 0, 0, 0.5);
+      background: rgba(0, 0, 0, 0.6);
       padding: 10px 20px;
       border-radius: 8px;
       user-select: none;
+      pointer-events: none;
+    }
+    #instructions {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: white;
+      font-size: 16px;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 8px 16px;
+      border-radius: 20px;
+      pointer-events: none;
+      text-align: center;
     }
   </style>
 </head>
 <body>
 
   <div id="score-board">Punteggio: <span id="score">0</span></div>
+  <div id="instructions">Trascina il cubo e rilascia per lanciarlo!</div>
 
-  <!-- Importazione di Three.js -->
+  <!-- Importazione Three.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
   <script>
-    // 1. Scena, Camera, Renderer
+    // 1. Scena, Camera e Renderer
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x1a1a2e);
 
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 10, 15);
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 15, 12);
     camera.lookAt(0, 0, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     document.body.appendChild(renderer.domElement);
 
-    // Light
+    // Luciosità
     const light = new THREE.DirectionalLight(0xffffff, 1);
-    light.position.set(5, 10, 7.5);
+    light.position.set(5, 15, 7.5);
     scene.add(light);
-    scene.add(new THREE.AmbientLight(0x404040));
+    scene.add(new THREE.AmbientLight(0x505050));
+
+    // Piano invisibile per intercettare il mouse/touch sul campo di gioco
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 
     // 2. Creazione Cubo (Giocatore)
     const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
-    const cubeMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff88 });
+    const cubeMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff88, roughness: 0.3 });
     const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
-    cube.position.y = 0.5;
+    cube.position.set(0, 0.5, 5);
     scene.add(cube);
+
+    // Indicatore della traiettoria (Linea della fionda)
+    const lineMaterial = new THREE.LineBasicMaterial({ color: 0xff0055, linewidth: 3 });
+    const lineGeometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+    const trajectoryLine = new THREE.Line(lineGeometry, lineMaterial);
+    trajectoryLine.visible = false;
+    scene.add(trajectoryLine);
 
     // 3. Gestione Sfere e Punteggio
     let score = 0;
     const spheres = [];
     const sphereGeometry = new THREE.SphereGeometry(0.5, 32, 32);
-    const sphereMaterial = new THREE.MeshStandardMaterial({ color: 0xff4757 });
+    const sphereMaterial = new THREE.MeshStandardMaterial({ color: 0xff4757, roughness: 0.2 });
 
     function addSphere() {
       const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-      // Posizione casuale entro l'area di gioco
-      sphere.position.x = (Math.random() - 0.5) * 16;
-      sphere.position.z = (Math.random() - 0.5) * 16;
+      sphere.position.x = (Math.random() - 0.5) * 14;
+      sphere.position.z = -Math.random() * 8; // Posizionate nella metà superiore della mappa
       sphere.position.y = 0.5;
       scene.add(sphere);
       spheres.push(sphere);
@@ -76,34 +104,107 @@
     // Genera la prima sfera
     addSphere();
 
-    // Controls
-    const keys = {};
-    window.addEventListener('keydown', (e) => keys[e.key] = true);
-    window.addEventListener('keyup', (e) => keys[e.key] = false);
+    // 4. Fisica del Lancio e Controlli
+    let isDragging = false;
+    let velocity = new THREE.Vector3(0, 0, 0);
+    const friction = 0.98; // Attrito per far rallentare il cubo
+    const startPos = new THREE.Vector3(0, 0.5, 5); // Posizione di riposo iniziale
 
-    // 4. Game Loop & Collisioni
+    function getPlaneIntersection(event) {
+      const clientX = event.touches ? event.touches[0].clientX : event.clientX;
+      const clientY = event.touches ? event.touches[0].clientY : event.clientY;
+
+      mouse.x = (clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const target = new THREE.Vector3();
+      raycaster.ray.intersectPlane(plane, target);
+      return target;
+    }
+
+    function onPointerDown(e) {
+      // Se il cubo è in movimento o fermo, controlla se si sta cliccando vicino al cubo
+      const point = getPlaneIntersection(e);
+      if (point && point.distanceTo(cube.position) < 2.5) {
+        isDragging = true;
+        velocity.set(0, 0, 0); // Ferma il movimento attuale
+      }
+    }
+
+    function onPointerMove(e) {
+      if (!isDragging) return;
+      const point = getPlaneIntersection(e);
+      if (!point) return;
+
+      // Limita la distanza massima di caricamento della fionda
+      const dragVector = new THREE.Vector3().subVectors(point, startPos);
+      if (dragVector.length() > 4) {
+        dragVector.setLength(4);
+      }
+
+      cube.position.copy(startPos).add(dragVector);
+
+      // Mostra la traiettoria opposta (direzione di lancio)
+      const launchDir = new THREE.Vector3().subVectors(startPos, cube.position);
+      const targetPoint = cube.position.clone().add(launchDir.clone().multiplyScalar(2));
+
+      const points = [cube.position.clone(), targetPoint];
+      trajectoryLine.geometry.setFromPoints(points);
+      trajectoryLine.visible = true;
+    }
+
+    function onPointerUp() {
+      if (!isDragging) return;
+      isDragging = false;
+      trajectoryLine.visible = false;
+
+      // Calcola la velocità in base al trascinamento
+      const pullVector = new THREE.Vector3().subVectors(startPos, cube.position);
+      velocity.copy(pullVector).multiplyScalar(0.25); // Moltiplicatore forza
+    }
+
+    // Eventi per Mouse e Touch Screen (Smartphone)
+    window.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('mousemove', onPointerMove);
+    window.addEventListener('mouseup', onPointerUp);
+
+    window.addEventListener('touchstart', onPointerDown, { passive: false });
+    window.addEventListener('touchmove', onPointerMove, { passive: false });
+    window.addEventListener('touchend', onPointerUp);
+
+    // 5. Game Loop e Collisioni
     function animate() {
       requestAnimationFrame(animate);
 
-      // Movimento Cubo (Freccette o WASD)
-      const speed = 0.15;
-      if (keys['ArrowUp'] || keys['w']) cube.position.z -= speed;
-      if (keys['ArrowDown'] || keys['s']) cube.position.z += speed;
-      if (keys['ArrowLeft'] || keys['a']) cube.position.x -= speed;
-      if (keys['ArrowRight'] || keys['d']) cube.position.x += speed;
+      // Applicazione movimento se rilasciato
+      if (!isDragging) {
+        cube.position.add(velocity);
+        velocity.multiplyScalar(friction); // Rallentamento progressivo
 
-      // Limiti campo di gioco
-      cube.position.x = Math.max(-9, Math.min(9, cube.position.x));
-      cube.position.z = Math.max(-9, Math.min(9, cube.position.z));
+        // Rimbalzo sui bordi
+        if (Math.abs(cube.position.x) > 9) {
+          velocity.x *= -1;
+          cube.position.x = Math.sign(cube.position.x) * 9;
+        }
+        if (cube.position.z < -10 || cube.position.z > 8) {
+          velocity.z *= -1;
+          cube.position.z = Math.min(Math.max(cube.position.z, -10), 8);
+        }
 
-      // Controlla collisioni con ogni sfera
+        // Se il cubo si ferma quasi del tutto, riportalo alla base
+        if (velocity.length() < 0.01 && velocity.length() > 0) {
+          velocity.set(0, 0, 0);
+        }
+      }
+
+      // Controllo Collisioni con le sfere
       for (let i = spheres.length - 1; i >= 0; i--) {
         const sphere = spheres[i];
         const distance = cube.position.distanceTo(sphere.position);
 
-        // Raggio cubo (~0.5) + Raggio sfera (0.5) = 1.0
-        if (distance < 0.9) {
-          // Rimuovi sfera colpita
+        if (distance < 1.0) {
+          // Rimuovi la sfera colpita
           scene.remove(sphere);
           spheres.splice(i, 1);
 
@@ -111,7 +212,7 @@
           score++;
           document.getElementById('score').innerText = score;
 
-          // Aggiungi 2 nuove sfere (una al posto di quella tolta + una extra)
+          // Aggiungi 2 nuove sfere
           addSphere();
           addSphere();
         }
@@ -122,7 +223,7 @@
 
     animate();
 
-    // Ridimensionamento finestra
+    // Resize Finestra
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
