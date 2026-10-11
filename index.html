@@ -3,140 +3,162 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Arcade 3D: Cubo vs Sfere</title>
+  <title>Cronache di Pietra - Borgo Fantasy 3D</title>
   <style>
     * { box-sizing: border-box; }
     body, html {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
+      margin: 0; padding: 0;
+      width: 100%; height: 100%;
       overflow: hidden;
-      font-family: 'Segoe UI', Roboto, sans-serif;
+      font-family: 'Cinzel', 'Georgia', serif;
       user-select: none;
-      background-color: #080818;
+      background-color: #0b0914;
     }
-    #canvas-container {
-      width: 100%;
-      height: 100%;
-      display: block;
-    }
+    #canvas-container { width: 100%; height: 100%; display: block; }
     #ui {
-      position: absolute;
-      top: 20px;
-      right: 20px;
-      color: #00fff2;
-      font-size: 26px;
-      font-weight: 800;
-      background: rgba(10, 15, 30, 0.85);
-      padding: 10px 24px;
-      border-radius: 12px;
-      border: 1px solid rgba(0, 255, 242, 0.4);
-      box-shadow: 0 0 15px rgba(0, 255, 242, 0.2);
-      pointer-events: none;
-      z-index: 10;
+      position: absolute; top: 20px; right: 20px;
+      color: #ffd700; font-size: 24px; font-weight: bold;
+      background: rgba(20, 15, 30, 0.85);
+      padding: 12px 24px; border-radius: 8px;
+      border: 2px solid #b8860b;
+      box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
+      pointer-events: none; z-index: 10;
     }
     #instructions {
-      position: absolute;
-      bottom: 25px;
-      left: 50%;
+      position: absolute; bottom: 25px; left: 50%;
       transform: translateX(-50%);
-      color: #ffffff;
-      font-size: 14px;
-      letter-spacing: 1px;
-      background: rgba(10, 15, 30, 0.85);
-      padding: 10px 22px;
-      border-radius: 30px;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      pointer-events: none;
-      text-transform: uppercase;
-      z-index: 10;
+      color: #f0e6d2; font-size: 15px; letter-spacing: 1px;
+      background: rgba(20, 15, 30, 0.9);
+      padding: 12px 28px; border-radius: 25px;
+      border: 1px solid #b8860b;
+      pointer-events: none; text-align: center;
+      z-index: 10; text-transform: uppercase;
     }
     .floating-text {
-      position: absolute;
-      color: #ff0055;
-      font-weight: 900;
-      font-size: 22px;
-      pointer-events: none;
-      animation: floatUp 0.8s ease-out forwards;
-      text-shadow: 0 0 8px rgba(255, 0, 85, 0.8);
-      z-index: 20;
+      position: absolute; color: #ff4500; font-weight: bold; font-size: 24px;
+      pointer-events: none; animation: floatUp 0.8s ease-out forwards;
+      text-shadow: 0 0 10px rgba(255, 69, 0, 0.8); z-index: 20;
     }
     @keyframes floatUp {
       0% { opacity: 1; transform: translateY(0) scale(1); }
-      100% { opacity: 0; transform: translateY(-40px) scale(1.4); }
+      100% { opacity: 0; transform: translateY(-50px) scale(1.3); }
     }
   </style>
-  <!-- Inseriamo Three.js nell'head per assicurarne il caricamento tempestivo -->
+  <!-- Three.js CDN -->
   <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
 </head>
 <body>
 
-  <div id="ui">SCORE: <span id="score">0</span></div>
-  <div id="instructions">Clicca/Tappa per lanciare i cubi dinamici!</div>
+  <div id="ui">GEMME DEL TEMPO: <span id="score">0</span></div>
+  <div id="instructions">Usa [W, A, S, D] per muovere l'eroe nella Piazza Storica<br>Clicca nello spazio per lanciare Runic Blocks contro le Sfere Corrotte!</div>
   <div id="canvas-container"></div>
 
   <script>
-    // Verifica che Three.js sia stato caricato
     if (typeof THREE === 'undefined') {
-      alert("Errore nel caricamento della libreria 3D. Ricarica la pagina.");
+      alert("Errore nel caricamento della libreria 3D.");
     }
 
     const container = document.getElementById('canvas-container');
 
-    // --- SCENA, CAMERA & RENDERER ---
+    // --- SCENA, CAMERA & RENDERER FANTASY ---
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x080818);
+    scene.background = new THREE.Color(0x0f1020);
+    scene.fog = new THREE.FogExp2(0x0f1020, 0.015);
 
     const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 10, 22);
-    camera.lookAt(0, 2, 0);
-
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
     container.appendChild(renderer.domElement);
 
-    // --- GRIGLIA D'ARENA E LUCI ---
-    const gridHelper = new THREE.GridHelper(40, 40, 0x00fff2, 0x1f1f3a);
-    gridHelper.position.y = 0;
-    scene.add(gridHelper);
-
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+    // --- ILLUMINAZIONE MAGICA (Torce e Bracieri) ---
+    const ambientLight = new THREE.AmbientLight(0x3b3857, 1.2);
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
-    dirLight.position.set(15, 25, 10);
-    scene.add(dirLight);
+    const moonLight = new THREE.DirectionalLight(0x7694ff, 0.8);
+    moonLight.position.set(20, 40, 20);
+    scene.add(moonLight);
 
-    // --- VARIABILI DI GIOCO ---
+    // Fuoco magico centrale (Piazza)
+    const plazaLight = new THREE.PointLight(0xff7700, 2, 25);
+    plazaLight.position.set(0, 3, 0);
+    scene.add(plazaLight);
+
+    // --- CREAZIONE DELLA PIAZZA FANTASY (Pavimentazione in pietra & Mura) ---
+    const plazaGeometry = new THREE.PlaneGeometry(60, 60);
+    const plazaMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0x2a2b38, 
+      roughness: 0.8,
+      metalness: 0.2
+    });
+    const plaza = new THREE.Mesh(plazaGeometry, plazaMaterial);
+    plaza.rotation.x = -Math.PI / 2;
+    plaza.receiveShadow = true;
+    scene.add(plaza);
+
+    // Colonne e Monumento Centrale
+    const pillarGeo = new THREE.CylinderGeometry(1.5, 2, 6, 8);
+    const pillarMat = new THREE.MeshStandardMaterial({ color: 0x55586e, roughness: 0.7 });
+    const centralPillar = new THREE.Mesh(pillarGeo, pillarMat);
+    centralPillar.position.set(0, 3, 0);
+    centralPillar.castShadow = true;
+    scene.add(centralPillar);
+
+    // --- PERSONAGGIO 3D (L'Eroe Fantasy) ---
+    const heroGroup = new THREE.Group();
+
+    // Corpo (Tunica)
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x1f4e79, roughness: 0.5 });
+    const bodyMesh = new THREE.Mesh(new THREE.ConeGeometry(0.8, 2, 6), bodyMat);
+    bodyMesh.position.y = 1;
+    bodyMesh.castShadow = true;
+    heroGroup.add(bodyMesh);
+
+    // Testa (Elmo magico)
+    const headMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.8 });
+    const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 16), headMat);
+    headMesh.position.y = 2.2;
+    heroGroup.add(headMesh);
+
+    scene.add(heroGroup);
+    heroGroup.position.set(0, 0, 10);
+
+    // --- VARIABILI DI GIOCO & MINIGIOCO ---
     let score = 0;
     const spheres = [];
     const cubes = [];
     const particles = [];
 
-    const sphereRadius = 1.1;
+    const sphereRadius = 1.2;
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
     const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 
-    // --- SFERA DINAMICA ---
+    // Controlli da tastiera per l'eroe
+    const keys = { w: false, a: false, s: false, d: false };
+    window.addEventListener('keydown', (e) => { if (keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = true; });
+    window.addEventListener('keyup', (e) => { if (keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = false; });
+
+    // --- SFERE CORROTTE (Minigioco) ---
     function spawnSphere() {
       const geometry = new THREE.SphereGeometry(sphereRadius, 32, 32);
       const material = new THREE.MeshStandardMaterial({ 
-        color: 0xff0055, 
+        color: 0x9900ff, 
         roughness: 0.2, 
-        metalness: 0.5
+        metalness: 0.6,
+        emissive: 0x330066
       });
       const sphere = new THREE.Mesh(geometry, material);
+      sphere.castShadow = true;
 
       const angle = Math.random() * Math.PI * 2;
-      const speed = 0.04 + Math.random() * 0.04;
+      const speed = 0.03 + Math.random() * 0.03;
 
       sphere.position.set(
-        (Math.random() - 0.5) * 16,
+        (Math.random() - 0.5) * 20,
         sphereRadius + Math.random() * 2,
-        (Math.random() - 0.5) * 12 - 2
+        (Math.random() - 0.5) * 15 - 5
       );
 
       sphere.userData = {
@@ -150,9 +172,9 @@
       spheres.push(sphere);
     }
 
-    // --- PARTICELLE ---
+    // --- EFFETTO MAGICO / PARTICELLE ---
     function createExplosion(pos) {
-      const particleCount = 20;
+      const particleCount = 25;
       const geometry = new THREE.BufferGeometry();
       const positions = [];
       const velocities = [];
@@ -161,28 +183,17 @@
         positions.push(pos.x, pos.y, pos.z);
         velocities.push(
           (Math.random() - 0.5) * 0.4,
-          (Math.random() - 0.5) * 0.4 + 0.1,
+          (Math.random() - 0.5) * 0.4 + 0.15,
           (Math.random() - 0.5) * 0.4
         );
       }
 
       geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-      
-      const material = new THREE.PointsMaterial({
-        color: 0xff2e63,
-        size: 0.4,
-        transparent: true,
-        opacity: 1
-      });
-
+      const material = new THREE.PointsMaterial({ color: 0xffd700, size: 0.4, transparent: true, opacity: 1 });
       const pSystem = new THREE.Points(geometry, material);
       scene.add(pSystem);
 
-      particles.push({
-        system: pSystem,
-        velocities: velocities,
-        life: 30
-      });
+      particles.push({ system: pSystem, velocities: velocities, life: 35 });
     }
 
     function showFloatingText(x, y, text) {
@@ -195,40 +206,39 @@
       setTimeout(() => div.remove(), 800);
     }
 
-    // --- LANCIO CUBO ---
+    // --- LANCIO RUNIC BLOCKS ---
     function throwCube(targetPoint) {
-      const colors = [0x00fff2, 0x00ff88, 0xffea00, 0x0099ff];
-      const randomColor = colors[Math.floor(Math.random() * colors.length)];
-      const cubeSize = 0.9 + Math.random() * 0.4;
-
+      const cubeSize = 0.9;
       const geometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
       const material = new THREE.MeshStandardMaterial({ 
-        color: randomColor, 
-        roughness: 0.1
+        color: 0x00ffff, 
+        roughness: 0.1,
+        emissive: 0x00aaaa,
+        emissiveIntensity: 0.5
       });
       const cube = new THREE.Mesh(geometry, material);
 
-      cube.position.set(0, 1, 15);
+      // Parte dalla posizione attuale dell'eroe
+      cube.position.copy(heroGroup.position);
+      cube.position.y += 1.5;
 
       const direction = new THREE.Vector3().subVectors(targetPoint, cube.position).normalize();
-      const speed = 0.6 + Math.random() * 0.2;
 
       cubes.push({
         mesh: cube,
-        velocity: direction.multiplyScalar(speed),
+        velocity: direction.multiplyScalar(0.7),
         size: cubeSize,
-        rotSpeed: {
-          x: (Math.random() - 0.5) * 0.2,
-          y: (Math.random() - 0.5) * 0.2
-        },
         life: 200
       });
 
       scene.add(cube);
     }
 
-    // --- INPUT ---
+    // --- INPUT CLICK ---
     window.addEventListener('pointerdown', (e) => {
+      // Evita click accidentali sui bordi UI
+      if (e.clientY < 80) return;
+
       mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
       mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
 
@@ -241,33 +251,46 @@
       }
     });
 
-    // Inizializza 2 sfere
+    // Inizializza 2 sfere nella piazza
     spawnSphere();
     spawnSphere();
 
-    // --- ANIMAZIONE ---
+    // --- LOOP DI GIOCO E ANIMAZIONE ---
     let clock = new THREE.Clock();
 
     function animate() {
       requestAnimationFrame(animate);
       const elapsedTime = clock.getElapsedTime();
 
-      // 1. Movimento Sfere
+      // 1. Movimento dell'Eroe nella Piazza Fantasy
+      const moveSpeed = 0.12;
+      if (keys.w && heroGroup.position.z > -20) heroGroup.position.z -= moveSpeed;
+      if (keys.s && heroGroup.position.z < 20) heroGroup.position.z += moveSpeed;
+      if (keys.a && heroGroup.position.x > -20) heroGroup.position.x -= moveSpeed;
+      if (keys.d && heroGroup.position.x < 20) heroGroup.position.x += moveSpeed;
+
+      // Segui l'eroe con la telecamera in terza persona dinamica
+      camera.position.x = heroGroup.position.x;
+      camera.position.y = heroGroup.position.y + 10;
+      camera.position.z = heroGroup.position.z + 14;
+      camera.lookAt(heroGroup.position.x, heroGroup.position.y + 1, heroGroup.position.z);
+
+      // 2. Movimento delle Sfere Corrotte
       spheres.forEach(s => {
         s.position.x += s.userData.vx;
         s.position.z += s.userData.vz;
-        s.position.y = s.userData.initialY + Math.sin(elapsedTime * 3 + s.userData.timeOffset) * 0.5;
+        s.position.y = s.userData.initialY + Math.sin(elapsedTime * 3 + s.userData.timeOffset) * 0.6;
 
-        if (Math.abs(s.position.x) > 9) s.userData.vx *= -1;
-        if (s.position.z > 6 || s.position.z < -10) s.userData.vz *= -1;
+        if (Math.abs(s.position.x) > 18) s.userData.vx *= -1;
+        if (Math.abs(s.position.z) > 14) s.userData.vz *= -1;
       });
 
-      // 2. Movimento Cubi & Collisioni
+      // 3. Gestione Runic Blocks e Collisioni
       for (let i = cubes.length - 1; i >= 0; i--) {
         const c = cubes[i];
         c.mesh.position.add(c.velocity);
-        c.mesh.rotation.x += c.rotSpeed.x;
-        c.mesh.rotation.y += c.rotSpeed.y;
+        c.mesh.rotation.x += 0.08;
+        c.mesh.rotation.y += 0.08;
         c.life--;
 
         let removed = false;
@@ -283,7 +306,7 @@
             const screenPos = s.position.clone().project(camera);
             const x = (screenPos.x * .5 + .5) * window.innerWidth;
             const y = (-(screenPos.y * .5) + .5) * window.innerHeight;
-            showFloatingText(x, y, "+100");
+            showFloatingText(x, y, "+200");
 
             scene.remove(s);
             spheres.splice(j, 1);
@@ -291,9 +314,10 @@
             cubes.splice(i, 1);
             removed = true;
 
-            score += 100;
+            score += 200;
             document.getElementById('score').innerText = score;
 
+            // Rigenera nuove sfere per aumentare la sfida
             spawnSphere();
             spawnSphere();
             break;
@@ -306,7 +330,7 @@
         }
       }
 
-      // 3. Particelle
+      // 4. Gestione Particelle ed Effetti
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
         const positions = p.system.geometry.attributes.position.array;
@@ -318,7 +342,7 @@
         }
 
         p.system.geometry.attributes.position.needsUpdate = true;
-        p.system.material.opacity = p.life / 30;
+        p.system.material.opacity = p.life / 35;
         p.life--;
 
         if (p.life <= 0) {
@@ -330,6 +354,7 @@
       renderer.render(scene, camera);
     }
 
+    // Ridimensionamento finestra
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
