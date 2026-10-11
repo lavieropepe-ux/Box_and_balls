@@ -3,206 +3,104 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lancio del Cubo 3D</title>
+  <title>Arcade 3D: Cubo vs Sfere</title>
   <style>
     body {
       margin: 0;
       overflow: hidden;
-      font-family: Arial, sans-serif;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       user-select: none;
+      background-color: #050510;
     }
     #ui {
       position: absolute;
       top: 20px;
       right: 20px;
-      color: #ffffff;
-      font-size: 24px;
-      font-weight: bold;
-      background: rgba(0, 0, 0, 0.6);
-      padding: 12px 24px;
-      border-radius: 8px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+      color: #00fff2;
+      font-size: 28px;
+      font-weight: 800;
+      background: rgba(10, 15, 30, 0.75);
+      backdrop-filter: blur(8px);
+      padding: 12px 28px;
+      border-radius: 12px;
+      border: 1px solid rgba(0, 255, 242, 0.3);
+      box-shadow: 0 0 15px rgba(0, 255, 242, 0.2);
       pointer-events: none;
     }
     #instructions {
       position: absolute;
-      bottom: 20px;
+      bottom: 25px;
       left: 50%;
       transform: translateX(-50%);
       color: #ffffff;
-      font-size: 16px;
-      background: rgba(0, 0, 0, 0.6);
-      padding: 10px 20px;
-      border-radius: 20px;
+      font-size: 15px;
+      letter-spacing: 1px;
+      background: rgba(10, 15, 30, 0.75);
+      backdrop-filter: blur(8px);
+      padding: 10px 24px;
+      border-radius: 30px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
       pointer-events: none;
+      text-transform: uppercase;
+    }
+    .floating-text {
+      position: absolute;
+      color: #ff0055;
+      font-weight: 900;
+      font-size: 22px;
+      pointer-events: none;
+      animation: floatUp 0.8s ease-out forwards;
+      text-shadow: 0 0 8px rgba(255, 0, 85, 0.8);
+    }
+    @keyframes floatUp {
+      0% { opacity: 1; transform: translateY(0) scale(1); }
+      100% { opacity: 0; transform: translateY(-40px) scale(1.4); }
     }
   </style>
 </head>
 <body>
 
-  <div id="ui">Punteggio: <span id="score">0</span></div>
-  <div id="instructions">Clicca ovunque per lanciare il cubo verso la sfera!</div>
+  <div id="ui">SCORE: <span id="score">0</span></div>
+  <div id="instructions">Clicca/Tappa per lanciare i cubi dinamici!</div>
 
+  <!-- Library Three.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
   <script>
-    // --- SCENA E CAMERA ---
+    // --- SCENA, CAMERA & RENDERER ---
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x1a1a2e);
+    scene.background = new THREE.Color(0x080818);
+    scene.fog = new THREE.FogExp2(0x080818, 0.02);
 
     const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 8, 20);
-    camera.lookAt(0, 0, 0);
+    camera.position.set(0, 10, 22);
+    camera.lookAt(0, 2, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
     document.body.appendChild(renderer.domElement);
 
-    // --- ILLUMINAZIONE ---
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+    // --- GRIGLIA D'ARENA E LUCI ---
+    const gridHelper = new THREE.GridHelper(40, 40, 0x00fff2, 0x1f1f3a);
+    gridHelper.position.y = 0;
+    scene.add(gridHelper);
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    dirLight.position.set(10, 20, 10);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+    dirLight.position.set(15, 25, 10);
+    dirLight.castShadow = true;
     scene.add(dirLight);
+
+    const pointLight = new THREE.PointLight(0x00fff2, 1, 30);
+    pointLight.position.set(0, 5, 0);
+    scene.add(pointLight);
 
     // --- VARIABILI DI GIOCO ---
     let score = 0;
     const spheres = [];
     const cubes = [];
-
-    const sphereRadius = 1.2;
-    const cubeSize = 1.0;
-
-    // Raycaster e piano di puntamento
-    const raycaster = new THREE.Raycaster();
-    const mouse = new THREE.Vector2();
-    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-
-    // --- CREAZIONE SFERA ---
-    function spawnSphere() {
-      const geometry = new THREE.SphereGeometry(sphereRadius, 32, 32);
-      const material = new THREE.MeshStandardMaterial({ 
-        color: 0xff2e63, 
-        roughness: 0.3, 
-        metalness: 0.2 
-      });
-      const sphere = new THREE.Mesh(geometry, material);
-
-      // Posizione casuale nell'area di gioco
-      sphere.position.x = (Math.random() - 0.5) * 14;
-      sphere.position.y = sphereRadius;
-      sphere.position.z = (Math.random() - 0.5) * 10 - 2;
-
-      scene.add(sphere);
-      spheres.push(sphere);
-    }
-
-    // --- LANCIO DEL CUBO ---
-    function throwCube(targetPoint) {
-      const geometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
-      const material = new THREE.MeshStandardMaterial({ 
-        color: 0x08d9d6, 
-        roughness: 0.2 
-      });
-      const cube = new THREE.Mesh(geometry, material);
-
-      // Posizione di partenza (basso al centro)
-      cube.position.set(0, 1, 14);
-
-      // Direzione normalizzata verso il punto cliccato sul piano
-      const direction = new THREE.Vector3().subVectors(targetPoint, cube.position).normalize();
-      
-      cubes.push({
-        mesh: cube,
-        velocity: direction.multiplyScalar(0.5), // Velocità di movimento
-        life: 250 // Durata massima in frame prima di sparire se fallisce
-      });
-
-      scene.add(cube);
-    }
-
-    // --- GESTIONE INPUT (CLICK / TAP) ---
-    window.addEventListener('pointerdown', (e) => {
-      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-
-      raycaster.setFromCamera(mouse, camera);
-      const target = new THREE.Vector3();
-      raycaster.ray.intersectPlane(plane, target);
-
-      if (target) {
-        throwCube(target);
-      }
-    });
-
-    // Inizia con la prima sfera
-    spawnSphere();
-
-    // --- LOOP DI GIOCO ---
-    function animate() {
-      requestAnimationFrame(animate);
-
-      // Aggiornamento Cubi e Collisioni
-      for (let i = cubes.length - 1; i >= 0; i--) {
-        const c = cubes[i];
-        c.mesh.position.add(c.velocity);
-        c.mesh.rotation.x += 0.04;
-        c.mesh.rotation.y += 0.04;
-        c.life--;
-
-        let cuboRimosso = false;
-
-        // Controllo collisione con le sfere
-        for (let j = spheres.length - 1; j >= 0; j--) {
-          const s = spheres[j];
-          
-          // Distanza euclidea tra i centri dei due oggetti
-          const distance = c.mesh.position.distanceTo(s.position);
-          
-          // Soglia di collisione (somma dei raggi stimati)
-          const collisionThreshold = sphereRadius + (cubeSize * 0.7);
-
-          if (distance < collisionThreshold) {
-            // Rimuovi sfera
-            scene.remove(s);
-            spheres.splice(j, 1);
-
-            // Rimuovi cubo
-            scene.remove(c.mesh);
-            cubes.splice(i, 1);
-            cuboRimosso = true;
-
-            // Aggiorna punteggio
-            score++;
-            document.getElementById('score').innerText = score;
-
-            // Aggiungi nuove sfere (regola: colpisci -> aumentano le sfere)
-            spawnSphere();
-            spawnSphere();
-
-            break;
-          }
-        }
-
-        // Se il cubo scade nel tempo ed esiste ancora, rimuovilo senza bloccare gli altri
-        if (!cuboRimosso && c.life <= 0) {
-          scene.remove(c.mesh);
-          cubes.splice(i, 1);
-        }
-      }
-
-      renderer.render(scene, camera);
-    }
-
-    // Gestione ridimensionamento finestra
-    window.addEventListener('resize', () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    });
-
-    animate();
-  </script>
-</body>
-</html>
+    const
