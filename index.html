@@ -2,441 +2,467 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Pecora Eroe - Fix Totale</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Cronache di Pietra - La Pecora Eroe</title>
   <style>
-    /* CSS SUPER PULITO PER EVITARE SPOSTAMENTI LAYOUT */
-    * { box-sizing: border-box; touch-action: none; margin: 0; padding: 0; }
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Cinzel:wght@600&display=swap');
+
+    * { box-sizing: border-box; touch-action: none; }
     body, html {
+      margin: 0; padding: 0;
       width: 100%; height: 100%;
       overflow: hidden;
-      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; /* Font standard sicuri */
-      background-color: #0b0914; /* Colore di sfondo scuro di fallback */
-      color: #e6dfcc;
-      user-select: none; -webkit-user-select: none;
+      font-family: 'Cinzel', serif;
+      user-select: none;
+      background-color: #05030a;
     }
+    #canvas-container { width: 100%; height: 100%; display: block; position: absolute; top: 0; left: 0; z-index: 1; }
     
-    /* Contenitore Canvas 3D */
-    #canvas-container { 
-      width: 100%; height: 100%; 
-      position: absolute; top: 0; left: 0; 
-      z-index: 1; 
-      display: block;
-    }
-    
-    /* INTERFACCIA UI (Sopra il 3D) */
-    .ui-element {
-      position: absolute;
-      z-index: 10;
-      pointer-events: none; /* Non blocca i tocchi sul 3D */
-      background: rgba(20, 15, 35, 0.85);
-      border: 1px solid rgba(212, 175, 55, 0.5);
-      border-radius: 12px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-      backdrop-filter: blur(3px); /* Effetto vetro opzionale, supportato da molti mobile */
-    }
-
-    #score-display {
-      top: 20px; right: 20px;
-      padding: 10px 20px;
-      color: #fce881;
-      font-size: 18px;
-      font-weight: bold;
-      text-transform: uppercase;
+    #ui {
+      position: absolute; top: 20px; right: 20px;
+      color: #fce881; font-size: 20px; font-weight: 600;
+      font-family: 'Cinzel Decorative', serif;
+      background: linear-gradient(135deg, rgba(20, 15, 35, 0.9), rgba(40, 25, 60, 0.9));
+      padding: 12px 24px; border-radius: 12px;
+      border: 2px solid #d4af37;
+      box-shadow: 0 0 20px rgba(212, 175, 55, 0.4);
+      pointer-events: none; z-index: 10;
       letter-spacing: 1px;
     }
 
-    #score { font-size: 22px; margin-left: 5px; }
-
-    #instructions-display {
-      bottom: 20px; left: 50%;
+    #instructions {
+      position: absolute; bottom: 20px; left: 50%;
       transform: translateX(-50%);
-      padding: 12px 24px;
-      border-radius: 25px;
-      text-align: center;
-      font-size: 13px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      width: 90%; max-width: 450px;
-      line-height: 1.4;
+      color: #e6dfcc; font-size: 13px; letter-spacing: 1px;
+      font-family: 'Cinzel', serif;
+      background: linear-gradient(135deg, rgba(20, 15, 35, 0.9), rgba(40, 25, 60, 0.9));
+      padding: 10px 24px; border-radius: 30px;
+      border: 1px solid #d4af37;
+      pointer-events: none; text-align: center;
+      z-index: 10; text-transform: uppercase;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+      width: 90%; max-width: 500px;
     }
 
-    @media (min-width: 768px) {
-      #score-display { font-size: 20px; }
-      #score { font-size: 24px; }
-      #instructions-display { font-size: 14px; }
+    .floating-text {
+      position: absolute; color: #ffcc00; font-weight: 700; font-size: 26px;
+      font-family: 'Cinzel Decorative', serif;
+      pointer-events: none; animation: floatUp 0.9s ease-out forwards;
+      text-shadow: 0 0 12px rgba(255, 170, 0, 0.9); z-index: 20;
+    }
+    @keyframes floatUp {
+      0% { opacity: 1; transform: translateY(0) scale(1); }
+      100% { opacity: 0; transform: translateY(-60px) scale(1.4); }
     }
   </style>
-  
-  <!-- Caricamento Three.js - Versione stabile e sicura da Unpkg -->
+  <!-- Three.js CDN -->
   <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
 </head>
 <body>
 
-  <!-- ELEMENTI UI HTML -->
-  <div id="score-display" class="ui-element">Gemme:<span id="score">0</span></div>
-  <div id="instructions-display" class="ui-element">Trascina la Pecora per muoverla<br>Tap veloce per colpire le anfore</div>
-  
-  <!-- CONTENITORE PER IL CANVA 3D -->
+  <div id="ui">GEMME: <span id="score">0</span></div>
+  <div id="instructions">Trascina la Pecora per muoverla • Tap veloce per colpire le anfore</div>
   <div id="canvas-container"></div>
 
   <script>
-    // --- CONTROLLO CARICAMENTO LIBRERIA ---
     if (typeof THREE === 'undefined') {
-      alert("Errore critico: Impossibile caricare la libreria grafica 3D (Three.js). Controlla la connessione.");
-      document.body.style.backgroundColor = "red"; // Indicazione visiva di errore critico
+      alert("Errore nel caricamento della libreria grafica 3D.");
     }
 
-    // --- VARIABILI GLOBALI DI GIOCO ---
-    let container, scene, camera, renderer, clock;
-    let heroGroup, ovenGroup;
-    let amphorae = [];
-    let cubes = [];
+    const container = document.getElementById('canvas-container');
+
+    // --- SCENA & RENDERER HD ---
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x06050a);
+    scene.fog = new THREE.FogExp2(0x06050a, 0.018);
+
+    const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
     
-    let score = 0;
-    const scoreElement = document.getElementById('score');
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
+    container.appendChild(renderer.domElement);
 
-    // Parametri di gioco
-    const arenaRadius = 20;
-    const amphoraSpawnRadius = 15;
-    const throwStrength = 0.75;
+    // --- ILLUMINAZIONE ---
+    const ambientLight = new THREE.AmbientLight(0x28243d, 1.5);
+    scene.add(ambientLight);
 
-    // --- INIZIALIZZAZIONE ---
-    function init() {
-      container = document.getElementById('canvas-container');
-      clock = new THREE.Clock();
+    const moonLight = new THREE.DirectionalLight(0x6082b6, 1.2);
+    moonLight.position.set(30, 50, 30);
+    moonLight.castShadow = true;
+    scene.add(moonLight);
 
-      // 1. SCENA E NEBBIA (Per profondità)
-      scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x06050a); // Colore di sfondo esplicito della scena
-      scene.fog = new THREE.FogExp2(0x06050a, 0.015);
+    // --- PIAZZA MEDIEVALE ---
+    const plazaGeo = new THREE.CylinderGeometry(24, 25, 0.8, 32);
+    const plazaMat = new THREE.MeshStandardMaterial({ color: 0x1d1e24, roughness: 0.7, metalness: 0.3 });
+    const plaza = new THREE.Mesh(plazaGeo, plazaMat);
+    plaza.position.y = -0.4;
+    plaza.receiveShadow = true;
+    scene.add(plaza);
 
-      // 2. FOTOCAMERA (Perspective)
-      camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
-      
-      // 3. RENDERER OPTIMIZED (No ombre avanzate, no post-processing pesante)
-      renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Limita la risoluzione su mobile
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      
-      // Importante: Disabilitiamo toneMapping e shadowMap per massima compatibilità mobile
-      renderer.shadowMap.enabled = false; 
-      renderer.toneMapping = THREE.NoToneMapping; 
-      
-      container.appendChild(renderer.domElement);
+    // --- FORNO ANTICO ---
+    function createOvenMesh() {
+      const ovenGroup = new THREE.Group();
+      const stoneMat = new THREE.MeshStandardMaterial({ color: 0x4a433e, roughness: 0.9, metalness: 0.1 });
+      const brickMat = new THREE.MeshStandardMaterial({ color: 0x8c3b2b, roughness: 0.8 });
+      const darkInsideMat = new THREE.MeshBasicMaterial({ color: 0x110500 });
+      const fireMat = new THREE.MeshBasicMaterial({ color: 0xff4500 });
 
-      // 4. LUCI (Semplici e performanti)
-      const ambientLight = new THREE.AmbientLight(0x3b3857, 1.8); // Luce ambientale forte
-      scene.add(ambientLight);
+      const baseGeo = new THREE.BoxGeometry(5.5, 1.2, 5.5);
+      const baseMesh = new THREE.Mesh(baseGeo, stoneMat);
+      baseMesh.position.y = 0.6;
+      baseMesh.castShadow = true;
+      baseMesh.receiveShadow = true;
+      ovenGroup.add(baseMesh);
 
-      const directionalLight = new THREE.DirectionalLight(0x809bce, 1.0); // Luce lunare
-      directionalLight.position.set(10, 20, 10);
-      scene.add(directionalLight);
+      const domeGeo = new THREE.SphereGeometry(2.4, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+      const domeMesh = new THREE.Mesh(domeGeo, brickMat);
+      domeMesh.position.y = 1.2;
+      domeMesh.castShadow = true;
+      ovenGroup.add(domeMesh);
 
-      const ovenPointLight = new THREE.PointLight(0xff7700, 2.5, 20); // Luce del fuoco del forno
-      ovenPointLight.position.set(0, 1.5, 2.5);
-      scene.add(ovenPointLight);
+      const chimneyGeo = new THREE.CylinderGeometry(0.4, 0.5, 1.8, 12);
+      const chimneyMesh = new THREE.Mesh(chimneyGeo, stoneMat);
+      chimneyMesh.position.set(1.2, 3.2, -1.0);
+      chimneyMesh.castShadow = true;
+      ovenGroup.add(chimneyMesh);
 
-      // 5. CREAZIONE MONDO (Pavimento e Forno)
-      createWorld();
+      const archGeo = new THREE.CylinderGeometry(0.9, 0.9, 0.8, 16, 1, false, 0, Math.PI);
+      const archMesh = new THREE.Mesh(archGeo, stoneMat);
+      archMesh.rotation.x = Math.PI / 2;
+      archMesh.position.set(0, 1.8, 2.2);
+      ovenGroup.add(archMesh);
 
-      // 6. CREAZIONE EROE (Pecora)
-      createHero();
+      const cavityGeo = new THREE.PlaneGeometry(1.4, 1.2);
+      const cavityMesh = new THREE.Mesh(cavityGeo, darkInsideMat);
+      cavityMesh.position.set(0, 1.6, 2.35);
+      ovenGroup.add(cavityMesh);
 
-      // 7. SPAWN INIZIALE ANFORE
-      for(let i=0; i<3; i++) spawnAmphora();
+      const fireGeo = new THREE.PlaneGeometry(1.2, 0.6);
+      const fireMesh = new THREE.Mesh(fireGeo, fireMat);
+      fireMesh.position.set(0, 1.3, 2.36);
+      ovenGroup.add(fireMesh);
 
-      // 8. ATTIVAZIONE CONTROLLI
-      initControls();
+      const ovenLight = new THREE.PointLight(0xff5500, 4.0, 18);
+      ovenLight.position.set(0, 1.6, 2.6);
+      ovenLight.castShadow = true;
+      ovenGroup.add(ovenLight);
 
-      // 9. AVVIO LOOP DI ANIMAZIONE
-      animate();
+      return ovenGroup;
     }
 
-    // --- CREAZIONE MONDO ---
-    function createWorld() {
-      // Pavimento della piazza (Semplice cerchio)
-      const groundGeo = new THREE.CircleGeometry(arenaRadius, 32);
-      const groundMat = new THREE.MeshStandardMaterial({ color: 0x222430, roughness: 0.8, metalness: 0.1 });
-      const ground = new THREE.Mesh(groundGeo, groundMat);
-      ground.rotation.x = -Math.PI / 2; // Orizzontale
-      scene.add(ground);
+    const oven = createOvenMesh();
+    scene.add(oven);
 
-      // Forno Antico (Costruito con geometrie primitive)
-      ovenGroup = new THREE.Group();
-      
-      // Materiali del forno
-      const stoneMat = new THREE.MeshStandardMaterial({ color: 0x4a433e });
-      const brickMat = new THREE.MeshStandardMaterial({ color: 0x8c3b2b });
+    // --- PECORA EROE ---
+    const heroGroup = new THREE.Group();
 
-      // Base del forno
-      const ovenBaseGeo = new THREE.CylinderGeometry(2.5, 2.8, 1.2, 16);
-      const ovenBase = new THREE.Mesh(ovenBaseGeo, stoneMat);
-      ovenBase.position.y = 0.6;
-      ovenGroup.add(ovenBase);
+    const capeMat = new THREE.MeshStandardMaterial({ color: 0x8b0000, roughness: 0.6 });
+    const capeMesh = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.1, 0.3), capeMat);
+    capeMesh.position.set(0, 0.8, -0.2);
+    capeMesh.castShadow = true;
+    heroGroup.add(capeMesh);
 
-      // Cupola del forno
-      const ovenDomeGeo = new THREE.SphereGeometry(2.2, 16, 12, 0, Math.PI*2, 0, Math.PI/2);
-      const ovenDome = new THREE.Mesh(ovenDomeGeo, brickMat);
-      ovenDome.position.y = 1.2;
-      ovenGroup.add(ovenDome);
+    const woolMat = new THREE.MeshStandardMaterial({ color: 0xf3f4f6, roughness: 0.9 });
+    const bodyMesh = new THREE.Mesh(new THREE.DodecahedronGeometry(0.65, 1), woolMat);
+    bodyMesh.position.y = 0.9;
+    bodyMesh.castShadow = true;
+    heroGroup.add(bodyMesh);
 
-      // Comignolo
-      const chimneyGeo = new THREE.CylinderGeometry(0.4, 0.4, 1.5, 8);
-      const chimney = new THREE.Mesh(chimneyGeo, stoneMat);
-      chimney.position.set(0.8, 2.8, -0.5);
-      ovenGroup.add(chimney);
+    const legMat = new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.8 });
+    const leg1 = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.1, 0.6), legMat);
+    leg1.position.set(-0.25, 0.3, 0);
+    heroGroup.add(leg1);
+    const leg2 = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.1, 0.6), legMat);
+    leg2.position.set(0.25, 0.3, 0);
+    heroGroup.add(leg2);
 
-      // Imbocco del forno
-      const entranceGeo = new THREE.CylinderGeometry(0.8, 0.8, 1.0, 12, 1, false, 0, Math.PI);
-      const entrance = new THREE.Mesh(entranceGeo, stoneMat);
-      entrance.rotation.x = Math.PI / 2;
-      entrance.position.set(0, 1.5, 2.0);
-      ovenGroup.add(entrance);
+    const headGroup = new THREE.Group();
+    headGroup.position.set(0, 1.5, 0.1);
 
-      scene.add(ovenGroup);
-    }
+    const headBase = new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 16), woolMat);
+    headGroup.add(headBase);
 
-    // --- CREAZIONE EROE PECORA ---
-    function createHero() {
-      heroGroup = new THREE.Group();
-      
-      // Materiali pecora
-      const woolMat = new THREE.MeshStandardMaterial({ color: 0xf3f4f6 });
-      const snoutMat = new THREE.MeshStandardMaterial({ color: 0x1f2937 });
-      const capeMat = new THREE.MeshStandardMaterial({ color: 0x8b0000 });
+    const snoutMat = new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.7 });
+    const snout = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.2, 0.3), snoutMat);
+    snout.position.set(0, -0.05, 0.25);
+    headGroup.add(snout);
 
-      // Corpo (Lana)
-      const bodyGeo = new THREE.DodecahedronGeometry(0.65, 0);
-      const body = new THREE.Mesh(bodyGeo, woolMat);
-      body.position.y = 0.9;
-      heroGroup.add(body);
+    const ear1 = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.12, 0.1), snoutMat);
+    ear1.position.set(-0.35, 0.1, 0);
+    ear1.rotation.z = 0.2;
+    headGroup.add(ear1);
 
-      // Mantello
-      const capeGeo = new THREE.BoxGeometry(0.9, 1.0, 0.3);
-      const cape = new THREE.Mesh(capeGeo, capeMat);
-      cape.position.set(0, 0.8, -0.2);
-      heroGroup.add(cape);
+    const ear2 = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.12, 0.1), snoutMat);
+    ear2.position.set(0.35, 0.1, 0);
+    ear2.rotation.z = -0.2;
+    headGroup.add(ear2);
 
-      // Gambe
-      const legGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.6);
-      const legMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
-      const legL = new THREE.Mesh(legGeo, legMat); legL.position.set(-0.25, 0.3, 0); heroGroup.add(legL);
-      const legR = new THREE.Mesh(legGeo, legMat); legR.position.set( 0.25, 0.3, 0); heroGroup.add(legR);
+    heroGroup.add(headGroup);
+    scene.add(heroGroup);
+    heroGroup.position.set(0, 0, 12);
 
-      // Testa
-      const headGeo = new THREE.SphereGeometry(0.35, 12, 12);
-      const head = new THREE.Mesh(headGeo, woolMat);
-      head.position.set(0, 1.5, 0.1);
-      
-      // Muso
-      const snoutGeo = new THREE.BoxGeometry(0.2, 0.2, 0.3);
-      const snout = new THREE.Mesh(snoutGeo, snoutMat);
-      snout.position.set(0, -0.1, 0.25);
-      head.add(snout);
-      
-      heroGroup.add(head);
-
-      scene.add(heroGroup);
-      heroGroup.position.set(0, 0, 10); // Posizione di partenza
-    }
-
-    // --- GESTIONE ANFORE ---
+    // --- ANFORA ANTICA ---
     function createAmphoraMesh() {
       const amphoraGroup = new THREE.Group();
-      const terracottaMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.9 });
+      const terracottaMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.7, metalness: 0.1 });
 
-      // Corpo
-      const bodyGeo = new THREE.SphereGeometry(0.8, 12, 12);
+      const bodyGeo = new THREE.SphereGeometry(0.9, 16, 16);
       bodyGeo.scale(1, 1.3, 1);
       const body = new THREE.Mesh(bodyGeo, terracottaMat);
+      body.castShadow = true;
       amphoraGroup.add(body);
 
-      // Collo
-      const neckGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.6, 8);
+      const neckGeo = new THREE.CylinderGeometry(0.3, 0.4, 0.7, 12);
       const neck = new THREE.Mesh(neckGeo, terracottaMat);
-      neck.position.y = 1.2;
+      neck.position.y = 1.3;
+      neck.castShadow = true;
       amphoraGroup.add(neck);
 
-      // Base
-      const baseGeo = new THREE.CylinderGeometry(0.3, 0.1, 0.3, 8);
+      const rimGeo = new THREE.TorusGeometry(0.35, 0.08, 8, 16);
+      const rim = new THREE.Mesh(rimGeo, terracottaMat);
+      rim.rotation.x = Math.PI / 2;
+      rim.position.y = 1.65;
+      amphoraGroup.add(rim);
+
+      const baseGeo = new THREE.CylinderGeometry(0.1, 0.3, 0.4, 12);
       const base = new THREE.Mesh(baseGeo, terracottaMat);
-      base.position.y = -1.1;
+      base.position.y = -1.2;
       amphoraGroup.add(base);
+
+      const handleGeo = new THREE.TorusGeometry(0.3, 0.07, 8, 12, Math.PI);
+      const handle1 = new THREE.Mesh(handleGeo, terracottaMat);
+      handle1.rotation.z = Math.PI / 2;
+      handle1.position.set(0.7, 0.5, 0);
+      amphoraGroup.add(handle1);
+
+      const handle2 = new THREE.Mesh(handleGeo, terracottaMat);
+      handle2.rotation.z = -Math.PI / 2;
+      handle2.position.set(-0.7, 0.5, 0);
+      amphoraGroup.add(handle2);
 
       return amphoraGroup;
     }
 
+    // --- VARIABILI DI GIOCO ---
+    let score = 0;
+    const amphorae = [];
+    const cubes = [];
+    const particles = [];
+
+    const amphoraRadius = 1.2;
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+
+    const keys = { w: false, a: false, s: false, d: false };
+    window.addEventListener('keydown', (e) => { if (keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = true; });
+    window.addEventListener('keyup', (e) => { if (keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = false; });
+
+    // --- CONTROLLI TOUCH & DRAG PER SMARTPHONE ---
+    let isDragging = false;
+    let touchStartTime = 0;
+    let touchStartPos = { x: 0, y: 0 };
+
+    window.addEventListener('pointerdown', (e) => {
+      if (e.clientY < 80) return;
+      
+      touchStartTime = Date.now();
+      touchStartPos = { x: e.clientX, y: e.clientY };
+
+      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersect = new THREE.Vector3();
+      raycaster.ray.intersectPlane(groundPlane, intersect);
+
+      if (intersect) {
+        // Se si tocca vicino alla pecora, si attiva il trascinamento
+        const distToHero = intersect.distanceTo(heroGroup.position);
+        if (distToHero < 5.0) {
+          isDragging = true;
+        }
+      }
+    });
+
+    window.addEventListener('pointermove', (e) => {
+      if (!isDragging) return;
+
+      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const targetPoint = new THREE.Vector3();
+      raycaster.ray.intersectPlane(groundPlane, targetPoint);
+
+      if (targetPoint) {
+        // Limita il trascinamento entro i bordi della piazza
+        const maxDist = 18;
+        if (targetPoint.length() < maxDist) {
+          heroGroup.position.x = targetPoint.x;
+          heroGroup.position.z = targetPoint.z;
+        }
+      }
+    });
+
+    window.addEventListener('pointerup', (e) => {
+      const touchDuration = Date.now() - touchStartTime;
+      const moveDist = Math.hypot(e.clientX - touchStartPos.x, e.clientY - touchStartPos.y);
+
+      // Se è stato un TAP veloce (non un trascinamento), lancia il cubo
+      if (touchDuration < 250 && moveDist < 10) {
+        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+        raycaster.setFromCamera(mouse, camera);
+        const target = new THREE.Vector3();
+        raycaster.ray.intersectPlane(groundPlane, target);
+
+        if (target) {
+          throwCube(target);
+        }
+      }
+
+      isDragging = false;
+    });
+
+    // --- SPAWN ANFORE ---
     function spawnAmphora() {
       const amphora = createAmphoraMesh();
-      
-      // Posizione casuale nel perimetro
+
       const angle = Math.random() * Math.PI * 2;
-      const radius = 8 + Math.random() * (amphoraSpawnRadius - 8);
-      
+      const speed = 0.03 + Math.random() * 0.025;
+      const distFromCenter = 9 + Math.random() * 9;
+
       amphora.position.set(
-        Math.cos(angle) * radius,
-        1.1, // Altezza da terra
-        Math.sin(angle) * radius
+        Math.cos(angle) * distFromCenter,
+        1.2,
+        Math.sin(angle) * distFromCenter
       );
-      
-      // Dati di movimento casuali
-      const moveSpeed = 0.02 + Math.random() * 0.03;
+
       amphora.userData = {
-        vx: (Math.random() - 0.5) * moveSpeed,
-        vz: (Math.random() - 0.5) * moveSpeed,
-        rotY: (Math.random() - 0.5) * 0.02
+        vx: Math.cos(angle + Math.PI/2) * speed * 1.2,
+        vz: Math.sin(angle + Math.PI/2) * speed * 1.2,
+        initialY: amphora.position.y,
+        timeOffset: Math.random() * 100
       };
 
       scene.add(amphora);
       amphorae.push(amphora);
     }
 
-    // --- CONTROLLI UNIFICATI (PC + MOBILE) ---
-    function initControls() {
-      const raycaster = new THREE.Raycaster();
-      const mouse = new THREE.Vector2();
-      const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-      
-      let isDragging = false;
-      let dragStartTime = 0;
-      let dragStartPos = { x: 0, y: 0 };
+    // --- PARTICELLE ED ESPLOSIONE ---
+    function createExplosion(pos) {
+      const particleCount = 40;
+      const geometry = new THREE.BufferGeometry();
+      const positions = [];
+      const velocities = [];
 
-      // Helper per ottenere coordinate mondo dal tocco/click
-      function getWorldPoint(e) {
-        // Gestione coordinate unificata (pointer events)
-        const clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
-        const clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
-
-        mouse.x = (clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(clientY / window.innerHeight) * 2 + 1;
-        
-        raycaster.setFromCamera(mouse, camera);
-        const intersectPoint = new THREE.Vector3();
-        raycaster.ray.intersectPlane(groundPlane, intersectPoint);
-        return intersectPoint;
+      for (let i = 0; i < particleCount; i++) {
+        positions.push(pos.x, pos.y, pos.z);
+        velocities.push(
+          (Math.random() - 0.5) * 0.6,
+          (Math.random() - 0.5) * 0.6 + 0.3,
+          (Math.random() - 0.5) * 0.6
+        );
       }
 
-      // Pointer Down (Inizio tocco/click)
-      window.addEventListener('pointerdown', (e) => {
-        if (e.target !== renderer.domElement) return; // Tocca UI HTML, ignora
-        
-        isDragging = true;
-        dragStartTime = Date.now();
-        dragStartPos = { x: e.clientX, y: e.clientY };
-      });
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      const material = new THREE.PointsMaterial({ color: 0xd97706, size: 0.45, transparent: true, opacity: 1 });
+      const pSystem = new THREE.Points(geometry, material);
+      scene.add(pSystem);
 
-      // Pointer Move (Trascinamento)
-      window.addEventListener('pointermove', (e) => {
-        if (!isDragging || e.target !== renderer.domElement) return;
-        
-        const worldPoint = getWorldPoint(e);
-        if (worldPoint) {
-          // Limita il movimento entro l'arena
-          const distFromCenter = worldPoint.length();
-          if (distFromCenter < arenaRadius - 1) {
-            heroGroup.position.x = worldPoint.x;
-            heroGroup.position.z = worldPoint.z;
-          }
-        }
-      });
-
-      // Pointer Up (Fine tocco/click)
-      window.addEventListener('pointerup', (e) => {
-        if (e.target !== renderer.domElement) return;
-        
-        const dragDuration = Date.now() - dragStartTime;
-        const dragDistance = Math.hypot(e.clientX - dragStartPos.x, e.clientY - dragStartPos.y);
-
-        // Se è un TAP veloce e non un trascinamento, lancia
-        if (dragDuration < 250 && dragDistance < 10) {
-          const targetPoint = getWorldPoint(e);
-          if (targetPoint) {
-            throwRuneCube(targetPoint);
-          }
-        }
-        isDragging = false;
-      });
-      
-      // Controlli Tastiera WASD (PC Fallback)
-      const keys = { w:false, a:false, s:false, d:false };
-      window.addEventListener('keydown', (e) => { if(keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = true; });
-      window.addEventListener('keyup', (e) => { if(keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = false; });
-      
-      // Update movimento tastiera nel loop
-      clock.getOldTime(); // Reset clock
-      scene.userData.updateKeyboard = function(delta) {
-        const wasdSpeed = 10 * delta;
-        if(keys.w && heroGroup.position.z > -arenaRadius+1) heroGroup.position.z -= wasdSpeed;
-        if(keys.s && heroGroup.position.z < arenaRadius-1)  heroGroup.position.z += wasdSpeed;
-        if(keys.a && heroGroup.position.x > -arenaRadius+1) heroGroup.position.x -= wasdSpeed;
-        if(keys.d && heroGroup.position.x < arenaRadius-1)  heroGroup.position.x += wasdSpeed;
-      }
+      particles.push({ system: pSystem, velocities: velocities, life: 45 });
     }
 
-    // --- MECCANICA DI LANCIO RUNE ---
-    function throwRuneCube(targetPoint) {
-      const cubeSize = 0.8;
+    function showFloatingText(x, y, text) {
+      const div = document.createElement('div');
+      div.className = 'floating-text';
+      div.innerText = text;
+      div.style.left = `${x}px`;
+      div.style.top = `${y}px`;
+      document.body.appendChild(div);
+      setTimeout(() => div.remove(), 900);
+    }
+
+    // --- LANCIO CUBI RUNICI ---
+    function throwCube(targetPoint) {
+      const cubeSize = 0.85;
       const geometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
       const material = new THREE.MeshStandardMaterial({ 
-        color: 0x00ffff, 
-        emissive: 0x00ffff,
-        emissiveIntensity: 0.5 
+        color: 0x38bdf8, 
+        roughness: 0.1,
+        metalness: 0.5,
+        emissive: 0x0284c7,
+        emissiveIntensity: 0.8
       });
       const cube = new THREE.Mesh(geometry, material);
-      
-      // Parte dall'eroe
-      cube.position.copy(heroGroup.position);
-      cube.position.y += 1.2; // Altezza lancio
+      cube.castShadow = true;
 
-      // Calcola direzione normalizzata verso il target
+      cube.position.copy(heroGroup.position);
+      cube.position.y += 1.0;
+
       const direction = new THREE.Vector3().subVectors(targetPoint, cube.position).normalize();
-      
-      scene.add(cube);
+
       cubes.push({
         mesh: cube,
-        velocity: direction.multiplyScalar(throwStrength),
-        life: 180 // Frame di vita
+        velocity: direction.multiplyScalar(0.75),
+        size: cubeSize,
+        life: 200
       });
+
+      scene.add(cube);
     }
 
-    // --- LOOP DI ANIMAZIONE E LOGICA ---
+    spawnAmphora();
+    spawnAmphora();
+    spawnAmphora();
+
+    let clock = new THREE.Clock();
+
     function animate() {
       requestAnimationFrame(animate);
-      
-      const delta = clock.getDelta();
-      
-      // 1. Update Movimento Tastiera (PC)
-      if (scene.userData.updateKeyboard) scene.userData.updateKeyboard(delta);
+      const elapsedTime = clock.getElapsedTime();
 
-      // 2. Telecamera a inseguimento morbido (Third Person)
-      const targetCamPos = new THREE.Vector3(
-        heroGroup.position.x,
-        heroGroup.position.y + 10,
-        heroGroup.position.z + 15
-      );
-      camera.position.lerp(targetCamPos, 0.1); // Smooth follow
-      camera.lookAt(heroGroup.position.x, heroGroup.position.y + 1, heroGroup.position.z);
+      // Movimento WASD (per PC)
+      const moveSpeed = 0.13;
+      if (keys.w && heroGroup.position.z > -18) heroGroup.position.z -= moveSpeed;
+      if (keys.s && heroGroup.position.z < 18) heroGroup.position.z += moveSpeed;
+      if (keys.a && heroGroup.position.x > -18) heroGroup.position.x -= moveSpeed;
+      if (keys.d && heroGroup.position.x < 18) heroGroup.position.x += moveSpeed;
 
-      // 3. Update Anfore (Movimento e collisione bordi)
-      for (let a of amphorae) {
-        a.position.x += a.userData.vx;
-        a.position.z += a.userData.vz;
-        a.rotation.y += a.userData.rotY;
-
-        // Rimbalzo bordi arena
-        const distFromCenter = a.position.length();
-        if (distFromCenter > arenaRadius - 1) {
-          const normal = a.position.clone().normalize();
-          const vel = new THREE.Vector3(a.userData.vx, 0, a.userData.vz);
-          // Riflessione velocità
-          const reflect = vel.reflect(normal);
-          a.userData.vx = reflect.x;
-          a.userData.vz = reflect.z;
-        }
+      if (keys.w || keys.a || keys.s || keys.d || isDragging) {
+        heroGroup.position.y = Math.sin(elapsedTime * 15) * 0.08;
+      } else {
+        heroGroup.position.y = 0;
       }
 
-      // 4. Update Cubi Lanciati e Collisioni Anfore
+      // Telecamera a inseguimento
+      camera.position.x = heroGroup.position.x;
+      camera.position.y = heroGroup.position.y + 10;
+      camera.position.z = heroGroup.position.z + 14;
+      camera.lookAt(heroGroup.position.x, heroGroup.position.y + 1, heroGroup.position.z);
+
+      // Movimento Anfore
+      amphorae.forEach(a => {
+        a.position.x += a.userData.vx;
+        a.position.z += a.userData.vz;
+        a.position.y = a.userData.initialY + Math.sin(elapsedTime * 3 + a.userData.timeOffset) * 0.3;
+        a.rotation.y += 0.015;
+
+        const distFromCenter = Math.sqrt(a.position.x**2 + a.position.z**2);
+        if (distFromCenter > 20) {
+          a.userData.vx *= -1;
+          a.userData.vz *= -1;
+        }
+      });
+
+      // Collisioni
       for (let i = cubes.length - 1; i >= 0; i--) {
         const c = cubes[i];
         c.mesh.position.add(c.velocity);
@@ -444,89 +470,73 @@
         c.mesh.rotation.y += 0.1;
         c.life--;
 
-        // Rimuovi cubi a fine vita
-        if (c.life <= 0) {
-          scene.remove(c.mesh);
-          cubes.splice(i, 1);
-          continue;
-        }
+        let removed = false;
 
-        // Controllo Collisione con Anfore (Semplice distanza basata su raggi)
         for (let j = amphorae.length - 1; j >= 0; j--) {
           const a = amphorae[j];
           const dist = c.mesh.position.distanceTo(a.position);
-          
-          if (dist < 1.8) { // Raggio collisione stimato
-            // COLLISIONE AVVENUTA
-            
-            // Effetto visivo (Semplice particella flash)
-            createExplosionEffect(a.position);
+          const collisionThreshold = amphoraRadius + (c.size * 0.5);
 
-            // Aggiorna Punteggio
-            score += 100;
-            scoreElement.innerText = score;
+          if (dist < collisionThreshold) {
+            createExplosion(a.position);
 
-            // Rimuovi Anfora e Cubo
+            const screenPos = a.position.clone().project(camera);
+            const x = (screenPos.x * .5 + .5) * window.innerWidth;
+            const y = (-(screenPos.y * .5) + .5) * window.innerHeight;
+            showFloatingText(x, y, "+300");
+
             scene.remove(a);
             amphorae.splice(j, 1);
             scene.remove(c.mesh);
             cubes.splice(i, 1);
+            removed = true;
 
-            // Spawn nuove anfore (Regola: ne spawnano 2 quando una viene distrutta)
+            score += 300;
+            document.getElementById('score').innerText = score;
+
             spawnAmphora();
             spawnAmphora();
-            
-            break; // Esci dal loop collisioni per questo cubo (è stato rimosso)
+            break;
           }
+        }
+
+        if (!removed && c.life <= 0) {
+          scene.remove(c.mesh);
+          cubes.splice(i, 1);
         }
       }
 
-      // 5. Update Particelle Esplosione
+      // Animazione particelle
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
-        p.position.add(p.userData.velocity);
-        p.userData.velocity.y -= 0.02; // Gravità
-        p.material.opacity -= 0.03; // Fade out
-        
-        if (p.material.opacity <= 0) {
-          scene.remove(p);
+        const positions = p.system.geometry.attributes.position.array;
+
+        for (let j = 0; j < positions.length; j += 3) {
+          positions[j] += p.velocities[j];
+          positions[j+1] += p.velocities[j+1];
+          positions[j+2] += p.velocities[j+2];
+        }
+
+        p.system.geometry.attributes.position.needsUpdate = true;
+        p.system.material.opacity = p.life / 45;
+        p.life--;
+
+        if (p.life <= 0) {
+          scene.remove(p.system);
           particles.splice(i, 1);
         }
       }
 
-      // RENDERING DELLA SCENA
       renderer.render(scene, camera);
     }
 
-    // --- EFFETTI VISIVI (Semplici particelle) ---
-    const particles = [];
-    function createExplosionEffect(pos) {
-      const particleGeo = new THREE.BoxGeometry(0.3, 0.3, 0.3);
-      const particleMat = new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 1 });
-      
-      for (let i = 0; i < 8; i++) {
-        const p = new THREE.Mesh(particleGeo, particleMat.clone());
-        p.position.copy(pos);
-        p.userData.velocity = new THREE.Vector3(
-          (Math.random() - 0.5) * 0.3,
-          (Math.random()) * 0.4,
-          (Math.random() - 0.5) * 0.3
-        );
-        scene.add(p);
-        particles.push(p);
-      }
-    }
-
-    // --- GESTIONE RIDIMENSIONAMENTO FINESTRA ---
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    // --- AVVIO GIOCO ---
-    window.onload = init;
-
+    animate();
   </script>
 </body>
 </html>
