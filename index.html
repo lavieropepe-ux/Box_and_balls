@@ -3,124 +3,167 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cronache di Pietra - Borgo Fantasy 3D</title>
+  <title>Cronache di Pietra - Edizione Fantasy HD</title>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Cinzel:wght@600&display=swap');
+
     * { box-sizing: border-box; }
     body, html {
       margin: 0; padding: 0;
       width: 100%; height: 100%;
       overflow: hidden;
-      font-family: 'Cinzel', 'Georgia', serif;
+      font-family: 'Cinzel', serif;
       user-select: none;
-      background-color: #0f1020;
+      background-color: #05030a;
     }
     #canvas-container { width: 100%; height: 100%; display: block; position: absolute; top: 0; left: 0; z-index: 1; }
+    
     #ui {
-      position: absolute; top: 20px; right: 20px;
-      color: #ffd700; font-size: 24px; font-weight: bold;
-      background: rgba(20, 15, 30, 0.85);
-      padding: 12px 24px; border-radius: 8px;
-      border: 2px solid #b8860b;
-      box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
+      position: absolute; top: 25px; right: 25px;
+      color: #fce881; font-size: 22px; font-weight: 600;
+      font-family: 'Cinzel Decorative', serif;
+      background: linear-gradient(135deg, rgba(20, 15, 35, 0.9), rgba(40, 25, 60, 0.9));
+      padding: 14px 28px; border-radius: 12px;
+      border: 2px solid #d4af37;
+      box-shadow: 0 0 20px rgba(212, 175, 55, 0.4), inset 0 0 10px rgba(212, 175, 55, 0.2);
       pointer-events: none; z-index: 10;
+      letter-spacing: 1px;
     }
+
     #instructions {
       position: absolute; bottom: 25px; left: 50%;
       transform: translateX(-50%);
-      color: #f0e6d2; font-size: 15px; letter-spacing: 1px;
-      background: rgba(20, 15, 30, 0.9);
-      padding: 12px 28px; border-radius: 25px;
-      border: 1px solid #b8860b;
+      color: #e6dfcc; font-size: 14px; letter-spacing: 1.5px;
+      font-family: 'Cinzel', serif;
+      background: linear-gradient(135deg, rgba(20, 15, 35, 0.9), rgba(40, 25, 60, 0.9));
+      padding: 12px 30px; border-radius: 30px;
+      border: 1px solid #d4af37;
       pointer-events: none; text-align: center;
       z-index: 10; text-transform: uppercase;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.5);
     }
+
     .floating-text {
-      position: absolute; color: #ff4500; font-weight: bold; font-size: 24px;
-      pointer-events: none; animation: floatUp 0.8s ease-out forwards;
-      text-shadow: 0 0 10px rgba(255, 69, 0, 0.8); z-index: 20;
+      position: absolute; color: #ffcc00; font-weight: 700; font-size: 26px;
+      font-family: 'Cinzel Decorative', serif;
+      pointer-events: none; animation: floatUp 0.9s ease-out forwards;
+      text-shadow: 0 0 12px rgba(255, 170, 0, 0.9); z-index: 20;
     }
     @keyframes floatUp {
       0% { opacity: 1; transform: translateY(0) scale(1); }
-      100% { opacity: 0; transform: translateY(-50px) scale(1.3); }
+      100% { opacity: 0; transform: translateY(-60px) scale(1.4); }
     }
   </style>
-  <!-- Three.js CDN Stabile -->
+  <!-- Three.js CDN -->
   <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
 </head>
 <body>
 
-  <div id="ui">GEMME DEL TEMPO: <span id="score">0</span></div>
-  <div id="instructions">Usa [W, A, S, D] per muovere l'eroe nella Piazza Storica<br>Clicca nello spazio per lanciare Runic Blocks contro le Sfere Corrotte!</div>
+  <div id="ui">GEMME: <span id="score">0</span></div>
+  <div id="instructions">Usa [W, A, S, D] per esplorare la Piazza • Clicca per lanciare Rune di Luce</div>
   <div id="canvas-container"></div>
 
   <script>
     if (typeof THREE === 'undefined') {
-      alert("Impossibile caricare la libreria grafica 3D.");
+      alert("Errore nel caricamento della libreria grafica 3D.");
     }
 
     const container = document.getElementById('canvas-container');
 
-    // --- SCENA, CAMERA & RENDERER ---
+    // --- SCENA & RENDERER HD ---
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0f1020);
-    scene.fog = new THREE.FogExp2(0x0f1020, 0.015);
+    scene.background = new THREE.Color(0x06050a);
+    scene.fog = new THREE.FogExp2(0x06050a, 0.018);
 
-    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
     
-    // Forziamo l'utilizzo del WebGLRenderer con parametri di compatibilità PC
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
     container.appendChild(renderer.domElement);
 
-    // --- ILLUMINAZIONE ---
-    const ambientLight = new THREE.AmbientLight(0x4b4867, 1.5);
+    // --- ILLUMINAZIONE ATMOSFERICA FANTASY ---
+    const ambientLight = new THREE.AmbientLight(0x28243d, 1.5);
     scene.add(ambientLight);
 
-    const moonLight = new THREE.DirectionalLight(0x88a4ff, 1.0);
-    moonLight.position.set(20, 40, 20);
+    const moonLight = new THREE.DirectionalLight(0x6082b6, 1.2);
+    moonLight.position.set(30, 50, 30);
+    moonLight.castShadow = true;
+    moonLight.shadow.mapSize.width = 2048;
+    moonLight.shadow.mapSize.height = 2048;
+    moonLight.shadow.bias = -0.0005;
     scene.add(moonLight);
 
-    const plazaLight = new THREE.PointLight(0xff7700, 2.5, 30);
-    plazaLight.position.set(0, 4, 0);
+    // Braciere centrale magico (Luce calda arancione/rossa)
+    const plazaLight = new THREE.PointLight(0xff5500, 3.5, 35);
+    plazaLight.position.set(0, 3.5, 0);
     scene.add(plazaLight);
 
-    // --- PIAZZA FANTASY ---
-    const plazaGeometry = new THREE.PlaneGeometry(60, 60);
-    const plazaMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0x2a2b38, 
-      roughness: 0.8,
-      metalness: 0.2
+    // --- PIAZZA MEDIEVALE DETTAGLIATA ---
+    // Pavimentazione in pietra circolare
+    const plazaGeo = new THREE.CylinderGeometry(24, 25, 0.8, 32);
+    const plazaMat = new THREE.MeshStandardMaterial({ 
+      color: 0x1d1e24, 
+      roughness: 0.7,
+      metalness: 0.3
     });
-    const plaza = new THREE.Mesh(plazaGeometry, plazaMaterial);
-    plaza.rotation.x = -Math.PI / 2;
+    const plaza = new THREE.Mesh(plazaGeo, plazaMat);
+    plaza.position.y = -0.4;
     plaza.receiveShadow = true;
     scene.add(plaza);
 
-    const pillarGeo = new THREE.CylinderGeometry(1.5, 2, 6, 8);
-    const pillarMat = new THREE.MeshStandardMaterial({ color: 0x55586e, roughness: 0.7 });
-    const centralPillar = new THREE.Mesh(pillarGeo, pillarMat);
-    centralPillar.position.set(0, 3, 0);
-    centralPillar.castShadow = true;
-    scene.add(centralPillar);
+    // Monumento centrale (Obelisco / Tempio antico)
+    const baseGeo = new THREE.BoxGeometry(4, 0.8, 4);
+    const stoneMat = new THREE.MeshStandardMaterial({ color: 0x3d3f4a, roughness: 0.8, metalness: 0.2 });
+    const baseMesh = new THREE.Mesh(baseGeo, stoneMat);
+    baseMesh.position.y = 0.4;
+    baseMesh.castShadow = true;
+    baseMesh.receiveShadow = true;
+    scene.add(baseMesh);
 
-    // --- EROE 3D ---
+    const obeliskGeo = new THREE.ConeGeometry(1.2, 7, 4);
+    const obelisk = new THREE.Mesh(obeliskGeo, stoneMat);
+    obelisk.position.y = 4.3;
+    obelisk.castShadow = true;
+    scene.add(obelisk);
+
+    // Cristallo fluttuante in cima al monumento
+    const topCrystalGeo = new THREE.OctahedronGeometry(0.8);
+    const topCrystalMat = new THREE.MeshStandardMaterial({ color: 0xffd700, emissive: 0xff8800, roughness: 0.1, metalness: 0.9 });
+    const topCrystal = new THREE.Mesh(topCrystalGeo, topCrystalMat);
+    topCrystal.position.y = 8.5;
+    scene.add(topCrystal);
+
+    // --- EROE 3D IN STILE FANTASY (Cavaliere con Mantello) ---
     const heroGroup = new THREE.Group();
 
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x1f4e79, roughness: 0.5 });
-    const bodyMesh = new THREE.Mesh(new THREE.ConeGeometry(0.8, 2, 6), bodyMat);
-    bodyMesh.position.y = 1;
+    // Mantello
+    const capeMat = new THREE.MeshStandardMaterial({ color: 0x8b0000, roughness: 0.6 });
+    const capeMesh = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.4, 0.4), capeMat);
+    capeMesh.position.set(0, 1.1, -0.2);
+    capeMesh.castShadow = true;
+    heroGroup.add(capeMesh);
+
+    // Armatura / Corpo
+    const armorMat = new THREE.MeshStandardMaterial({ color: 0x4a5568, metalness: 0.7, roughness: 0.3 });
+    const bodyMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.7, 1.5, 8), armorMat);
+    bodyMesh.position.y = 1.1;
     bodyMesh.castShadow = true;
     heroGroup.add(bodyMesh);
 
-    const headMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.8 });
-    const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 16), headMat);
-    headMesh.position.y = 2.2;
-    heroGroup.add(headMesh);
+    // Elmo con pennacchio dorato
+    const helmMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.9, roughness: 0.2 });
+    const helmMesh = new THREE.Mesh(new THREE.SphereGeometry(0.45, 16, 16), helmMat);
+    helmMesh.position.y = 2.1;
+    helmMesh.castShadow = true;
+    heroGroup.add(helmMesh);
 
     scene.add(heroGroup);
-    heroGroup.position.set(0, 0, 10);
+    heroGroup.position.set(0, 0, 12);
 
     // --- VARIABILI DI GIOCO ---
     let score = 0;
@@ -137,29 +180,33 @@
     window.addEventListener('keydown', (e) => { if (keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = true; });
     window.addEventListener('keyup', (e) => { if (keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = false; });
 
+    // --- SFERE DI CRISTALLO CORROTTE (HD) ---
     function spawnSphere() {
-      const geometry = new THREE.SphereGeometry(sphereRadius, 32, 32);
+      const geometry = new THREE.IcosahedronGeometry(sphereRadius, 2);
       const material = new THREE.MeshStandardMaterial({ 
-        color: 0x9900ff, 
-        roughness: 0.2, 
-        metalness: 0.6,
-        emissive: 0x330066
+        color: 0x9333ea, 
+        roughness: 0.1, 
+        metalness: 0.8,
+        emissive: 0x581c87,
+        emissiveIntensity: 0.6
       });
       const sphere = new THREE.Mesh(geometry, material);
       sphere.castShadow = true;
 
       const angle = Math.random() * Math.PI * 2;
-      const speed = 0.03 + Math.random() * 0.03;
+      const speed = 0.035 + Math.random() * 0.03;
 
+      // Genera lungo il perimetro della piazza
+      const distFromCenter = 8 + Math.random() * 10;
       sphere.position.set(
-        (Math.random() - 0.5) * 20,
-        sphereRadius + Math.random() * 2,
-        (Math.random() - 0.5) * 15 - 5
+        Math.cos(angle) * distFromCenter,
+        sphereRadius + 1 + Math.random() * 2,
+        Math.sin(angle) * distFromCenter
       );
 
       sphere.userData = {
-        vx: Math.cos(angle) * speed,
-        vz: Math.sin(angle) * speed,
+        vx: Math.cos(angle + Math.PI/2) * speed * 1.2,
+        vz: Math.sin(angle + Math.PI/2) * speed * 1.2,
         initialY: sphere.position.y,
         timeOffset: Math.random() * 100
       };
@@ -168,8 +215,9 @@
       spheres.push(sphere);
     }
 
+    // --- ESPLOSIONE MAGICA A PARTICELLE LUMINOSE ---
     function createExplosion(pos) {
-      const particleCount = 25;
+      const particleCount = 35;
       const geometry = new THREE.BufferGeometry();
       const positions = [];
       const velocities = [];
@@ -177,18 +225,24 @@
       for (let i = 0; i < particleCount; i++) {
         positions.push(pos.x, pos.y, pos.z);
         velocities.push(
-          (Math.random() - 0.5) * 0.4,
-          (Math.random() - 0.5) * 0.4 + 0.15,
-          (Math.random() - 0.5) * 0.4
+          (Math.random() - 0.5) * 0.5,
+          (Math.random() - 0.5) * 0.5 + 0.2,
+          (Math.random() - 0.5) * 0.5
         );
       }
 
       geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-      const material = new THREE.PointsMaterial({ color: 0xffd700, size: 0.4, transparent: true, opacity: 1 });
+      const material = new THREE.PointsMaterial({ 
+        color: 0xfde047, 
+        size: 0.45, 
+        transparent: true, 
+        opacity: 1,
+        blending: THREE.AdditiveBlending
+      });
       const pSystem = new THREE.Points(geometry, material);
       scene.add(pSystem);
 
-      particles.push({ system: pSystem, velocities: velocities, life: 35 });
+      particles.push({ system: pSystem, velocities: velocities, life: 40 });
     }
 
     function showFloatingText(x, y, text) {
@@ -198,28 +252,31 @@
       div.style.left = `${x}px`;
       div.style.top = `${y}px`;
       document.body.appendChild(div);
-      setTimeout(() => div.remove(), 800);
+      setTimeout(() => div.remove(), 900);
     }
 
+    // --- LANCIO CUBI RUNICI LUMINOSI ---
     function throwCube(targetPoint) {
-      const cubeSize = 0.9;
+      const cubeSize = 0.85;
       const geometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
       const material = new THREE.MeshStandardMaterial({ 
-        color: 0x00ffff, 
+        color: 0x38bdf8, 
         roughness: 0.1,
-        emissive: 0x00aaaa,
-        emissiveIntensity: 0.5
+        metalness: 0.5,
+        emissive: 0x0284c7,
+        emissiveIntensity: 0.8
       });
       const cube = new THREE.Mesh(geometry, material);
+      cube.castShadow = true;
 
       cube.position.copy(heroGroup.position);
-      cube.position.y += 1.5;
+      cube.position.y += 1.3;
 
       const direction = new THREE.Vector3().subVectors(targetPoint, cube.position).normalize();
 
       cubes.push({
         mesh: cube,
-        velocity: direction.multiplyScalar(0.7),
+        velocity: direction.multiplyScalar(0.75),
         size: cubeSize,
         life: 200
       });
@@ -242,6 +299,8 @@
       }
     });
 
+    // Avvia con 3 sfere di cristallo
+    spawnSphere();
     spawnSphere();
     spawnSphere();
 
@@ -251,24 +310,115 @@
       requestAnimationFrame(animate);
       const elapsedTime = clock.getElapsedTime();
 
-      const moveSpeed = 0.12;
-      if (keys.w && heroGroup.position.z > -20) heroGroup.position.z -= moveSpeed;
-      if (keys.s && heroGroup.position.z < 20) heroGroup.position.z += moveSpeed;
-      if (keys.a && heroGroup.position.x > -20) heroGroup.position.x -= moveSpeed;
-      if (keys.d && heroGroup.position.x < 20) heroGroup.position.x += moveSpeed;
+      // Animazione cristallo centrale
+      topCrystal.rotation.y = elapsedTime * 1.5;
+      topCrystal.position.y = 8.5 + Math.sin(elapsedTime * 3) * 0.3;
 
+      // Movimento Eroe con restrizione nei confini della piazza
+      const moveSpeed = 0.13;
+      if (keys.w && heroGroup.position.z > -18) heroGroup.position.z -= moveSpeed;
+      if (keys.s && heroGroup.position.z < 18) heroGroup.position.z += moveSpeed;
+      if (keys.a && heroGroup.position.x > -18) heroGroup.position.x -= moveSpeed;
+      if (keys.d && heroGroup.position.x < 18) heroGroup.position.x += moveSpeed;
+
+      // Telecamera in terza persona cinematografica
       camera.position.x = heroGroup.position.x;
-      camera.position.y = heroGroup.position.y + 10;
-      camera.position.z = heroGroup.position.z + 14;
+      camera.position.y = heroGroup.position.y + 11;
+      camera.position.z = heroGroup.position.z + 15;
       camera.lookAt(heroGroup.position.x, heroGroup.position.y + 1, heroGroup.position.z);
 
+      // Movimento fluttuante delle sfere di cristallo
       spheres.forEach(s => {
         s.position.x += s.userData.vx;
         s.position.z += s.userData.vz;
-        s.position.y = s.userData.initialY + Math.sin(elapsedTime * 3 + s.userData.timeOffset) * 0.6;
+        s.position.y = s.userData.initialY + Math.sin(elapsedTime * 4 + s.userData.timeOffset) * 0.5;
+        s.rotation.x += 0.01;
+        s.rotation.y += 0.02;
 
-        if (Math.abs(s.position.x) > 18) s.userData.vx *= -1;
-        if (Math.abs(s.position.z) > 14) s.userData.vz *= -1;
+        // Rimbalzo morbido ai bordi della piazza
+        const distFromCenter = Math.sqrt(s.position.x**2 + s.position.z**2);
+        if (distFromCenter > 20) {
+          s.userData.vx *= -1;
+          s.userData.vz *= -1;
+        }
       });
 
-      for (let i =
+      // Gestione cubi e collisioni
+      for (let i = cubes.length - 1; i >= 0; i--) {
+        const c = cubes[i];
+        c.mesh.position.add(c.velocity);
+        c.mesh.rotation.x += 0.1;
+        c.mesh.rotation.y += 0.1;
+        c.life--;
+
+        let removed = false;
+
+        for (let j = spheres.length - 1; j >= 0; j--) {
+          const s = spheres.get ? spheres[j] : spheres[j]; // safe access
+          const dist = c.mesh.position.distanceTo(s.position);
+          const collisionThreshold = sphereRadius + (c.size * 0.6);
+
+          if (dist < collisionThreshold) {
+            createExplosion(s.position);
+
+            const screenPos = s.position.clone().project(camera);
+            const x = (screenPos.x * .5 + .5) * window.innerWidth;
+            const y = (-(screenPos.y * .5) + .5) * window.innerHeight;
+            showFloatingText(x, y, "+250");
+
+            scene.remove(s);
+            spheres.splice(j, 1);
+            scene.remove(c.mesh);
+            cubes.splice(i, 1);
+            removed = true;
+
+            score += 250;
+            document.getElementById('score').innerText = score;
+
+            // Aggiungi sfere per aumentare la sfida
+            spawnSphere();
+            spawnSphere();
+            break;
+          }
+        }
+
+        if (!removed && c.life <= 0) {
+          scene.remove(c.mesh);
+          cubes.splice(i, 1);
+        }
+      }
+
+      // Animazione particelle esplosione
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        const positions = p.system.geometry.attributes.position.array;
+
+        for (let j = 0; j < positions.length; j += 3) {
+          positions[j] += p.velocities[j];
+          positions[j+1] += p.velocities[j+1];
+          positions[j+2] += p.velocities[j+2];
+        }
+
+        p.system.geometry.attributes.position.needsUpdate = true;
+        p.system.material.opacity = p.life / 40;
+        p.life--;
+
+        if (p.life <= 0) {
+          scene.remove(p.system);
+          particles.splice(i, 1);
+        }
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    animate();
+  </script>
+</body>
+</html>
