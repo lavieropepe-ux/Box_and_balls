@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cronache di Pietra - Edizione Fantasy HD</title>
+  <title>Cronache di Pietra - La Pecora Eroe</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Cinzel:wght@600&display=swap');
 
@@ -60,7 +60,7 @@
 <body>
 
   <div id="ui">GEMME: <span id="score">0</span></div>
-  <div id="instructions">Usa [W, A, S, D] per esplorare la Piazza • Clicca per lanciare Rune di Luce</div>
+  <div id="instructions">Usa [W, A, S, D] per muovere la Pecora Eroe • Clicca per lanciare Rune di Luce</div>
   <div id="canvas-container"></div>
 
   <script>
@@ -93,36 +93,25 @@
     const moonLight = new THREE.DirectionalLight(0x6082b6, 1.2);
     moonLight.position.set(30, 50, 30);
     moonLight.castShadow = true;
-    moonLight.shadow.mapSize.width = 2048;
-    moonLight.shadow.mapSize.height = 2048;
-    moonLight.shadow.bias = -0.0005;
     scene.add(moonLight);
 
-    // Braciere centrale magico (Luce calda arancione/rossa)
     const plazaLight = new THREE.PointLight(0xff5500, 3.5, 35);
     plazaLight.position.set(0, 3.5, 0);
     scene.add(plazaLight);
 
-    // --- PIAZZA MEDIEVALE DETTAGLIATA ---
-    // Pavimentazione in pietra circolare
+    // --- PIAZZA MEDIEVALE ---
     const plazaGeo = new THREE.CylinderGeometry(24, 25, 0.8, 32);
-    const plazaMat = new THREE.MeshStandardMaterial({ 
-      color: 0x1d1e24, 
-      roughness: 0.7,
-      metalness: 0.3
-    });
+    const plazaMat = new THREE.MeshStandardMaterial({ color: 0x1d1e24, roughness: 0.7, metalness: 0.3 });
     const plaza = new THREE.Mesh(plazaGeo, plazaMat);
     plaza.position.y = -0.4;
     plaza.receiveShadow = true;
     scene.add(plaza);
 
-    // Monumento centrale (Obelisco / Tempio antico)
     const baseGeo = new THREE.BoxGeometry(4, 0.8, 4);
     const stoneMat = new THREE.MeshStandardMaterial({ color: 0x3d3f4a, roughness: 0.8, metalness: 0.2 });
     const baseMesh = new THREE.Mesh(baseGeo, stoneMat);
     baseMesh.position.y = 0.4;
     baseMesh.castShadow = true;
-    baseMesh.receiveShadow = true;
     scene.add(baseMesh);
 
     const obeliskGeo = new THREE.ConeGeometry(1.2, 7, 4);
@@ -131,37 +120,63 @@
     obelisk.castShadow = true;
     scene.add(obelisk);
 
-    // Cristallo fluttuante in cima al monumento
     const topCrystalGeo = new THREE.OctahedronGeometry(0.8);
     const topCrystalMat = new THREE.MeshStandardMaterial({ color: 0xffd700, emissive: 0xff8800, roughness: 0.1, metalness: 0.9 });
     const topCrystal = new THREE.Mesh(topCrystalGeo, topCrystalMat);
     topCrystal.position.y = 8.5;
     scene.add(topCrystal);
 
-    // --- EROE 3D IN STILE FANTASY (Cavaliere con Mantello) ---
+    // --- LA PECORA EROE SU DUE ZAMPE ---
     const heroGroup = new THREE.Group();
 
-    // Mantello
+    // Mantello da eroe
     const capeMat = new THREE.MeshStandardMaterial({ color: 0x8b0000, roughness: 0.6 });
-    const capeMesh = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.4, 0.4), capeMat);
-    capeMesh.position.set(0, 1.1, -0.2);
+    const capeMesh = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.1, 0.3), capeMat);
+    capeMesh.position.set(0, 0.8, -0.2);
     capeMesh.castShadow = true;
     heroGroup.add(capeMesh);
 
-    // Armatura / Corpo
-    const armorMat = new THREE.MeshStandardMaterial({ color: 0x4a5568, metalness: 0.7, roughness: 0.3 });
-    const bodyMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.7, 1.5, 8), armorMat);
-    bodyMesh.position.y = 1.1;
+    // Corpo soffice (Lana della pecora)
+    const woolMat = new THREE.MeshStandardMaterial({ color: 0xf3f4f6, roughness: 0.9 });
+    const bodyMesh = new THREE.Mesh(new THREE.DodecahedronGeometry(0.65, 1), woolMat);
+    bodyMesh.position.y = 0.9;
     bodyMesh.castShadow = true;
     heroGroup.add(bodyMesh);
 
-    // Elmo con pennacchio dorato
-    const helmMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.9, roughness: 0.2 });
-    const helmMesh = new THREE.Mesh(new THREE.SphereGeometry(0.45, 16, 16), helmMat);
-    helmMesh.position.y = 2.1;
-    helmMesh.castShadow = true;
-    heroGroup.add(helmMesh);
+    // Gambe posteriori (su due zampe)
+    const legMat = new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.8 });
+    const leg1 = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.1, 0.6), legMat);
+    leg1.position.set(-0.25, 0.3, 0);
+    heroGroup.add(leg1);
+    const leg2 = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.1, 0.6), legMat);
+    leg2.position.set(0.25, 0.3, 0);
+    heroGroup.add(leg2);
 
+    // Testa della pecora
+    const headGroup = new THREE.Group();
+    headGroup.position.set(0, 1.5, 0.1);
+
+    const headBase = new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 16), woolMat);
+    headGroup.add(headBase);
+
+    // Muso scuro
+    const snoutMat = new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.7 });
+    const snout = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.2, 0.3), snoutMat);
+    snout.position.set(0, -0.05, 0.25);
+    headGroup.add(snout);
+
+    // Orecchie pendenti
+    const ear1 = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.12, 0.1), snoutMat);
+    ear1.position.set(-0.35, 0.1, 0);
+    ear1.rotation.z = 0.2;
+    headGroup.add(ear1);
+
+    const ear2 = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.12, 0.1), snoutMat);
+    ear2.position.set(0.35, 0.1, 0);
+    ear2.rotation.z = -0.2;
+    headGroup.add(ear2);
+
+    heroGroup.add(headGroup);
     scene.add(heroGroup);
     heroGroup.position.set(0, 0, 12);
 
@@ -180,7 +195,7 @@
     window.addEventListener('keydown', (e) => { if (keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = true; });
     window.addEventListener('keyup', (e) => { if (keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = false; });
 
-    // --- SFERE DI CRISTALLO CORROTTE (HD) ---
+    // --- SFERE DI CRISTALLO ---
     function spawnSphere() {
       const geometry = new THREE.IcosahedronGeometry(sphereRadius, 2);
       const material = new THREE.MeshStandardMaterial({ 
@@ -195,9 +210,8 @@
 
       const angle = Math.random() * Math.PI * 2;
       const speed = 0.035 + Math.random() * 0.03;
-
-      // Genera lungo il perimetro della piazza
       const distFromCenter = 8 + Math.random() * 10;
+
       sphere.position.set(
         Math.cos(angle) * distFromCenter,
         sphereRadius + 1 + Math.random() * 2,
@@ -215,7 +229,7 @@
       spheres.push(sphere);
     }
 
-    // --- ESPLOSIONE MAGICA A PARTICELLE LUMINOSE ---
+    // --- ESPLOSIONE ---
     function createExplosion(pos) {
       const particleCount = 35;
       const geometry = new THREE.BufferGeometry();
@@ -255,7 +269,7 @@
       setTimeout(() => div.remove(), 900);
     }
 
-    // --- LANCIO CUBI RUNICI LUMINOSI ---
+    // --- LANCIO CUBI RUNICI ---
     function throwCube(targetPoint) {
       const cubeSize = 0.85;
       const geometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
@@ -270,7 +284,7 @@
       cube.castShadow = true;
 
       cube.position.copy(heroGroup.position);
-      cube.position.y += 1.3;
+      cube.position.y += 1.0;
 
       const direction = new THREE.Vector3().subVectors(targetPoint, cube.position).normalize();
 
@@ -299,7 +313,6 @@
       }
     });
 
-    // Avvia con 3 sfere di cristallo
     spawnSphere();
     spawnSphere();
     spawnSphere();
@@ -310,24 +323,27 @@
       requestAnimationFrame(animate);
       const elapsedTime = clock.getElapsedTime();
 
-      // Animazione cristallo centrale
       topCrystal.rotation.y = elapsedTime * 1.5;
       topCrystal.position.y = 8.5 + Math.sin(elapsedTime * 3) * 0.3;
 
-      // Movimento Eroe con restrizione nei confini della piazza
       const moveSpeed = 0.13;
       if (keys.w && heroGroup.position.z > -18) heroGroup.position.z -= moveSpeed;
       if (keys.s && heroGroup.position.z < 18) heroGroup.position.z += moveSpeed;
       if (keys.a && heroGroup.position.x > -18) heroGroup.position.x -= moveSpeed;
       if (keys.d && heroGroup.position.x < 18) heroGroup.position.x += moveSpeed;
 
-      // Telecamera in terza persona cinematografica
+      // Leggero dondolio mentre cammina
+      if (keys.w || keys.a || keys.s || keys.d) {
+        heroGroup.position.y = Math.sin(elapsedTime * 15) * 0.08;
+      } else {
+        heroGroup.position.y = 0;
+      }
+
       camera.position.x = heroGroup.position.x;
-      camera.position.y = heroGroup.position.y + 11;
-      camera.position.z = heroGroup.position.z + 15;
+      camera.position.y = heroGroup.position.y + 10;
+      camera.position.z = heroGroup.position.z + 14;
       camera.lookAt(heroGroup.position.x, heroGroup.position.y + 1, heroGroup.position.z);
 
-      // Movimento fluttuante delle sfere di cristallo
       spheres.forEach(s => {
         s.position.x += s.userData.vx;
         s.position.z += s.userData.vz;
@@ -335,7 +351,6 @@
         s.rotation.x += 0.01;
         s.rotation.y += 0.02;
 
-        // Rimbalzo morbido ai bordi della piazza
         const distFromCenter = Math.sqrt(s.position.x**2 + s.position.z**2);
         if (distFromCenter > 20) {
           s.userData.vx *= -1;
@@ -343,7 +358,6 @@
         }
       });
 
-      // Gestione cubi e collisioni
       for (let i = cubes.length - 1; i >= 0; i--) {
         const c = cubes[i];
         c.mesh.position.add(c.velocity);
@@ -354,7 +368,7 @@
         let removed = false;
 
         for (let j = spheres.length - 1; j >= 0; j--) {
-          const s = spheres.get ? spheres[j] : spheres[j]; // safe access
+          const s = spheres[j];
           const dist = c.mesh.position.distanceTo(s.position);
           const collisionThreshold = sphereRadius + (c.size * 0.6);
 
@@ -375,7 +389,6 @@
             score += 250;
             document.getElementById('score').innerText = score;
 
-            // Aggiungi sfere per aumentare la sfida
             spawnSphere();
             spawnSphere();
             break;
@@ -388,7 +401,6 @@
         }
       }
 
-      // Animazione particelle esplosione
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
         const positions = p.system.geometry.attributes.position.array;
