@@ -61,7 +61,7 @@
 <body>
 
   <div id="ui">GEMME: <span id="score">0</span></div>
-  <div id="instructions">Trascina la Pecora per muoverla • Tap veloce per colpire le anfore</div>
+  <div id="instructions">Trascina ovunque per muovere la Pecora • Tap per colpire le anfore</div>
   <div id="canvas-container"></div>
 
   <script>
@@ -263,59 +263,33 @@
     window.addEventListener('keydown', (e) => { if (keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = true; });
     window.addEventListener('keyup', (e) => { if (keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = false; });
 
-    // --- CONTROLLI TOUCH & DRAG PER SMARTPHONE ---
+    // --- SISTEMA TOUCH & DRAG FLUIDO OVUNQUE ---
     let isDragging = false;
     let touchStartTime = 0;
     let touchStartPos = { x: 0, y: 0 };
+    let targetHeroPosition = new THREE.Vector3(0, 0, 12);
 
     window.addEventListener('pointerdown', (e) => {
       if (e.clientY < 80) return;
       
+      isDragging = true;
       touchStartTime = Date.now();
       touchStartPos = { x: e.clientX, y: e.clientY };
 
-      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-
-      raycaster.setFromCamera(mouse, camera);
-      const intersect = new THREE.Vector3();
-      raycaster.ray.intersectPlane(groundPlane, intersect);
-
-      if (intersect) {
-        // Se si tocca vicino alla pecora, si attiva il trascinamento
-        const distToHero = intersect.distanceTo(heroGroup.position);
-        if (distToHero < 5.0) {
-          isDragging = true;
-        }
-      }
+      updateHeroTarget(e.clientX, e.clientY);
     });
 
     window.addEventListener('pointermove', (e) => {
       if (!isDragging) return;
-
-      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-
-      raycaster.setFromCamera(mouse, camera);
-      const targetPoint = new THREE.Vector3();
-      raycaster.ray.intersectPlane(groundPlane, targetPoint);
-
-      if (targetPoint) {
-        // Limita il trascinamento entro i bordi della piazza
-        const maxDist = 18;
-        if (targetPoint.length() < maxDist) {
-          heroGroup.position.x = targetPoint.x;
-          heroGroup.position.z = targetPoint.z;
-        }
-      }
+      updateHeroTarget(e.clientX, e.clientY);
     });
 
     window.addEventListener('pointerup', (e) => {
       const touchDuration = Date.now() - touchStartTime;
       const moveDist = Math.hypot(e.clientX - touchStartPos.x, e.clientY - touchStartPos.y);
 
-      // Se è stato un TAP veloce (non un trascinamento), lancia il cubo
-      if (touchDuration < 250 && moveDist < 10) {
+      // Se è un tap veloce senza trascinamento marcato, lancia la runa
+      if (touchDuration < 250 && moveDist < 15) {
         mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
         mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
 
@@ -330,6 +304,22 @@
 
       isDragging = false;
     });
+
+    function updateHeroTarget(clientX, clientY) {
+      mouse.x = (clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const targetPoint = new THREE.Vector3();
+      raycaster.ray.intersectPlane(groundPlane, targetPoint);
+
+      if (targetPoint) {
+        const maxDist = 18;
+        if (targetPoint.length() < maxDist) {
+          targetHeroPosition.set(targetPoint.x, 0, targetPoint.z);
+        }
+      }
+    }
 
     // --- SPAWN ANFORE ---
     function spawnAmphora() {
@@ -435,6 +425,11 @@
       if (keys.s && heroGroup.position.z < 18) heroGroup.position.z += moveSpeed;
       if (keys.a && heroGroup.position.x > -18) heroGroup.position.x -= moveSpeed;
       if (keys.d && heroGroup.position.x < 18) heroGroup.position.x += moveSpeed;
+
+      // Movimento fluido verso il punto trascinato (Mobile)
+      if (isDragging) {
+        heroGroup.position.lerp(targetHeroPosition, 0.15);
+      }
 
       if (keys.w || keys.a || keys.s || keys.d || isDragging) {
         heroGroup.position.y = Math.sin(elapsedTime * 15) * 0.08;
